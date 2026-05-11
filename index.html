@@ -25,6 +25,20 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
 .brand img{height:34px;max-width:130px;object-fit:contain}
 .actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .intro{min-height:calc(100vh - 70px);display:flex;align-items:center;justify-content:center;padding:24px}
+.access-gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#f8fbff 0%,#eef4ff 45%,#fffaf0 100%)}
+.gate-card{width:min(560px,100%);background:#fff;border:1px solid #d9e1f2;border-radius:24px;box-shadow:0 14px 36px rgba(20,40,80,.10);padding:26px}
+.gate-head{text-align:center;color:#0b326f;margin-bottom:14px}
+.gate-head img{height:44px;max-width:160px;object-fit:contain}
+.gate-title{font-size:28px;font-weight:1000;line-height:1.25;white-space:pre-line;margin:10px 0 2px}
+.gate-sub{font-size:12px;color:#64748b}
+.gate-row{display:flex;gap:8px;align-items:center}
+.gate-note{font-size:12px;color:#475467;line-height:1.5;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-top:8px}
+.admin-trial-panel{margin-top:10px;border:1px solid #d9e1f2;border-radius:10px;padding:8px;background:#f8fbff}
+.admin-trial-list{display:flex;flex-direction:column;gap:6px;max-height:140px;overflow:auto;margin-top:6px}
+.admin-trial-item{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px}
+.auth-badge{display:inline-block;margin-left:8px;padding:4px 8px;border-radius:999px;background:#eef3fb;color:#17468f;font-size:11px;font-weight:1000}
+.auth-badge.admin{background:#ecfdf3;color:#166534}
+.auth-badge.trial{background:#fff7ed;color:#9a3412}
 .intro-card{width:min(980px,100%);background:#fff;border:1px solid var(--line);border-radius:28px;box-shadow:0 16px 40px rgba(20,40,80,.10);padding:38px}
 .intro-title{text-align:center;font-size:42px;font-weight:1000;color:var(--navy2);margin:0 0 8px}
 .intro-sub{text-align:center;color:var(--muted);line-height:1.65;margin-bottom:24px}
@@ -136,6 +150,27 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
 
 .mode-panel-title{font-size:13px;font-weight:1000;color:var(--navy);margin:12px 0 8px;border-top:1px solid var(--line);padding-top:12px}
 .status-line{font-size:12px;font-weight:900;color:#475467;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:7px}
+.drive-status-table{font-size:12px;font-weight:800;color:#334155;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:7px;display:grid;grid-template-columns:88px 1fr;gap:6px 8px;align-items:start}
+.drive-status-table .k{color:#64748b;font-weight:900}
+.drive-status-table .v{word-break:break-word;overflow-wrap:anywhere}
+.drive-status-table .v.file{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.drive-status-table .badge-ok{color:#166534;font-weight:1000}
+.drive-status-table .badge-fail{color:#b91c1c;font-weight:1000}
+.drive-status-table .hint{grid-column:1 / -1;color:#0f766e;font-weight:900;padding-top:2px}
+@media (max-width:620px){
+  .drive-status-table{grid-template-columns:74px 1fr;font-size:11px;padding:7px 8px}
+}
+.ops-panel{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#f8fbff;padding:8px}
+.ops-panel h4{margin:0 0 6px;font-size:12px;color:#17468f}
+.ops-grid{display:grid;grid-template-columns:96px 1fr;gap:6px 8px;font-size:12px}
+.ops-grid .k{color:#64748b;font-weight:900}
+.ops-grid .v{word-break:break-word;overflow-wrap:anywhere;font-weight:900}
+.ops-ok{color:#166534}
+.ops-bad{color:#b91c1c}
+.ops-mid{color:#92400e}
+@media (max-width:620px){
+  .ops-grid{grid-template-columns:80px 1fr;font-size:11px}
+}
 .upload-zone{border:1.5px dashed #9eb3d7;border-radius:12px;background:#f8fbff;padding:12px;text-align:center;color:#475467;font-size:12px;font-weight:800}
 .upload-zone.paste-ready{cursor:text;outline:none}.upload-zone.paste-ready:focus{border-color:#2c9448;box-shadow:0 0 0 3px rgba(44,148,72,.14)}
 .style-mode-button{width:100%;min-height:52px;margin-top:12px;font-size:17px;font-weight:900;border-radius:10px}
@@ -149,6 +184,8 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
 @media print{
   body{background:#fff}#intro,.topbar,.layout>.panel{display:none!important}
   .debug-only{display:none!important}
+  .drive-status-table{display:none!important}
+  .ops-panel{display:none!important}
   .layout{display:block;padding:0}.preview{display:block}
   .page{width:210mm;height:297mm;box-shadow:none;margin:0}
   @page{size:A4;margin:0}
@@ -161,9 +198,30 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="brand"><img src="assets/logo-gfield-transparent.png" alt="G-FIELD"><span>G-FIELD Smart Canvas</span><span id="modePill" class="mode-pill">인트로</span></div>
+<section id="accessGate" class="access-gate">
+  <div class="gate-card">
+    <div class="gate-head">
+      <img src="assets/logo-gfield-transparent.png" alt="G-FIELD">
+      <div class="gate-title">성공하는 공부 습관을 위한
+G-FIELD Smart Canvas</div>
+      <div class="gate-sub">승인번호를 입력하면 시작할 수 있습니다.</div>
+    </div>
+    <div class="field">
+      <label>승인번호</label>
+      <div class="gate-row">
+        <input id="accessCodeInput" type="password" placeholder="승인번호 입력">
+        <button onclick="approveAccessCode()">승인 후 시작하기</button>
+      </div>
+    </div>
+    <div id="accessGateStatus" class="status-line">승인 대기</div>
+    <div class="gate-note">보안 주석: 현재 승인번호/체험횟수 제한은 개인용/테스트용 클라이언트 잠금입니다. 상업용 실제 인증은 Apps Script/서버 인증으로 교체해야 하며, localStorage/sessionStorage 제한은 브라우저 데이터 삭제 시 초기화될 수 있습니다.</div>
+  </div>
+</section>
+
+<div id="topbar" class="topbar hidden">
+  <div class="brand"><img src="assets/logo-gfield-transparent.png" alt="G-FIELD"><span>G-FIELD Smart Canvas</span><span id="modePill" class="mode-pill">인트로</span><span id="authModeBadge" class="auth-badge hidden"></span></div>
   <div class="actions">
+    <button class="secondary small" onclick="lockAccess()">잠금/로그아웃</button>
     <button class="secondary small" onclick="showIntro()">모드 선택</button>
     <button class="secondary small" onclick="resetQuickTest()">예시문항 8개 자동 넣기</button>
     <button class="secondary small" onclick="saveJson()">프로젝트 저장(JSON)</button>
@@ -173,7 +231,7 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
   </div>
 </div>
 
-<section id="intro" class="intro">
+<section id="intro" class="intro hidden">
   <div class="intro-card">
     <h1 class="intro-title">G-FIELD Smart Canvas</h1>
     <div class="intro-sub">시험지 제작과 교재 제작을 단계별로 진행하는 통합 버전입니다.</div>
@@ -313,6 +371,19 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
         <div id="driveStatus" class="status-line">개인 Google Drive 저장 폴더 확정됨</div>
         <div class="row" style="margin-top:10px"><div class="field"><label>AI 제공자</label><select id="aiProvider"><option selected>Mock</option><option>OpenAI</option><option>Gemini</option><option>둘 다</option></select></div><div class="field"><label>API Key 상태</label><input id="aiApiKey" type="password" placeholder="AI 설정 필요"></div></div>
       </div>
+      <div id="opsPanel" class="ops-panel">
+        <h4>운영 체크 패널</h4>
+        <div id="opsPanelBody" class="ops-grid"></div>
+      </div>
+      <div id="trialCodeAdminPanel" class="admin-trial-panel hidden">
+        <div class="field" style="margin-bottom:6px"><label>체험용 승인번호 관리 (관리자 전용)</label></div>
+        <div class="gate-row">
+          <input id="trialCodeInput" placeholder="체험용 승인번호 입력">
+          <button class="secondary small" onclick="addTrialCode()">체험번호 추가</button>
+        </div>
+        <div id="trialCodeAdminStatus" class="status-line" style="margin-top:6px">관리자 모드에서 체험번호를 관리할 수 있습니다.</div>
+        <div id="trialCodeList" class="admin-trial-list"></div>
+      </div>
       <div id="aiStatus" class="status-line">현재 AI 엔진: Mock<br>실제 OCR/AI 연결 전 테스트 모드입니다.</div>
 
       <button class="secondary style-mode-button" onclick="showHandwritingGuide()">풀이 스타일 확인</button>
@@ -337,6 +408,10 @@ let step = "setup";
 let problems = [];
 let solutionReviewMode = false;
 const ensureAnswerStartsOnEvenPage = true;
+const ADMIN_APPROVAL_CODE="777200";
+const ACCESS_SESSION_KEY="gfieldAccessSession";
+const TRIAL_CODES_KEY="gfieldTrialCodes";
+const TRIAL_USAGE_PREFIX="gfieldTrialUsage_";
 const forbiddenSolutionTerms=["조합","순열","nCr","combination","binomial","\\binom","\\choose"];
 const solutionRuleLibrary={
   shortest_path_grade3:{
@@ -357,10 +432,219 @@ const solutionReferenceState={
   imageDataUrl:"",
   imageName:""
 };
+const opsRuntimeState={
+  driveConnected:false,
+  drivePermission:false,
+  lastSavedFile:"",
+  authMode:"",
+  authRemaining:null
+};
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function getVal(id){return document.getElementById(id)?.value||"";}
 function setStatus(id,msg){const el=document.getElementById(id);if(el)el.textContent=msg;}
+function setGateStatus(msg){setStatus("accessGateStatus",msg);}
+function loadAccessSession(){
+  try{return JSON.parse(sessionStorage.getItem(ACCESS_SESSION_KEY)||"null");}catch(_e){return null;}
+}
+function saveAccessSession(data){
+  sessionStorage.setItem(ACCESS_SESSION_KEY,JSON.stringify(data||{}));
+}
+function clearAccessSession(){
+  sessionStorage.removeItem(ACCESS_SESSION_KEY);
+}
+function getTrialCodes(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(TRIAL_CODES_KEY)||"[]");
+    return Array.isArray(parsed)?parsed.map(v=>String(v).trim()).filter(Boolean):[];
+  }catch(_e){return [];}
+}
+function setTrialCodes(list){
+  localStorage.setItem(TRIAL_CODES_KEY,JSON.stringify((list||[]).map(v=>String(v).trim()).filter(Boolean)));
+}
+function getTrialUsage(code){
+  return Number(localStorage.getItem(TRIAL_USAGE_PREFIX+code)||"0")||0;
+}
+function setTrialUsage(code,count){
+  localStorage.setItem(TRIAL_USAGE_PREFIX+code,String(count));
+}
+function approveAccessCode(){
+  const input=document.getElementById("accessCodeInput");
+  const code=String((input&&input.value)||"").trim();
+  if(!code){setGateStatus("승인번호를 입력해 주세요.");return;}
+  if(code===ADMIN_APPROVAL_CODE){
+    saveAccessSession({mode:"admin",code,approvedAt:new Date().toISOString()});
+    setGateStatus("관리자 모드 승인 완료");
+    if(input)input.value="";
+    applyAccessGateVisibility();
+    showIntro();
+    renderTrialCodeAdminPanel();
+    return;
+  }
+  const trials=getTrialCodes();
+  if(trials.includes(code)){
+    const used=getTrialUsage(code);
+    if(used>=2){
+      setGateStatus("체험 가능 횟수 2회를 모두 사용했습니다.");
+      return;
+    }
+    const next=used+1;
+    setTrialUsage(code,next);
+    const remain=Math.max(0,2-next);
+    // TODO: 체험 모드에서 기능 제한(예: 저장/출력 제한)은 운영 정책 확정 후 서버 인증과 함께 적용.
+    saveAccessSession({mode:"trial",code,remain,approvedAt:new Date().toISOString()});
+    setGateStatus("2회만 체험 가능합니다.");
+    if(input)input.value="";
+    applyAccessGateVisibility();
+    showIntro();
+    renderTrialCodeAdminPanel();
+    return;
+  }
+  setGateStatus("승인번호가 유효하지 않습니다.");
+}
+function lockAccess(){
+  clearAccessSession();
+  opsRuntimeState.authMode="";
+  opsRuntimeState.authRemaining=null;
+  applyAccessGateVisibility();
+  const input=document.getElementById("accessCodeInput");
+  if(input)input.value="";
+  setGateStatus("승인 대기");
+}
+function renderAuthModeBadge(){
+  const badge=document.getElementById("authModeBadge");
+  if(!badge) return;
+  const s=loadAccessSession();
+  if(!s||!s.mode){badge.classList.add("hidden");badge.textContent="";badge.classList.remove("admin","trial");return;}
+  badge.classList.remove("hidden","admin","trial");
+  if(s.mode==="admin"){
+    badge.classList.add("admin");
+    badge.textContent="관리자 모드";
+    opsRuntimeState.authMode="admin";
+    opsRuntimeState.authRemaining=null;
+  }else{
+    const remain=typeof s.remain==="number"?s.remain:0;
+    badge.classList.add("trial");
+    badge.textContent=`체험 모드 · 남은 횟수 ${remain}회`;
+    opsRuntimeState.authMode="trial";
+    opsRuntimeState.authRemaining=remain;
+  }
+}
+function applyAccessGateVisibility(){
+  const s=loadAccessSession();
+  const approved=!!(s&&s.mode&&(s.mode==="admin"||s.mode==="trial"));
+  const gate=document.getElementById("accessGate");
+  const topbar=document.getElementById("topbar");
+  const intro=document.getElementById("intro");
+  const layout=document.getElementById("layout");
+  if(gate)gate.classList.toggle("hidden",approved);
+  if(topbar)topbar.classList.toggle("hidden",!approved);
+  if(!approved){
+    if(intro)intro.classList.add("hidden");
+    if(layout)layout.classList.remove("active");
+  }
+  renderAuthModeBadge();
+  renderTrialCodeAdminPanel();
+  renderOpsPanel();
+}
+function addTrialCode(){
+  const input=document.getElementById("trialCodeInput");
+  const status=document.getElementById("trialCodeAdminStatus");
+  const code=String((input&&input.value)||"").trim();
+  if(!code){if(status)status.textContent="체험용 승인번호를 입력해 주세요.";return;}
+  const list=getTrialCodes();
+  if(list.includes(code)){if(status)status.textContent="이미 등록된 체험번호입니다.";return;}
+  list.push(code);
+  setTrialCodes(list);
+  if(input)input.value="";
+  if(status)status.textContent="체험번호가 추가되었습니다.";
+  renderTrialCodeAdminPanel();
+}
+function removeTrialCode(code){
+  const list=getTrialCodes().filter(v=>v!==code);
+  setTrialCodes(list);
+  renderTrialCodeAdminPanel();
+}
+function removeTrialCodeByEncoded(encoded){
+  removeTrialCode(decodeURIComponent(encoded||""));
+}
+function renderTrialCodeAdminPanel(){
+  const panel=document.getElementById("trialCodeAdminPanel");
+  const listBox=document.getElementById("trialCodeList");
+  if(!panel||!listBox) return;
+  const s=loadAccessSession();
+  const admin=!!(s&&s.mode==="admin");
+  panel.classList.toggle("hidden",!admin||mode!=="exam");
+  if(!admin){listBox.innerHTML="";return;}
+  const codes=getTrialCodes();
+  if(!codes.length){listBox.innerHTML=`<div class="status-line">등록된 체험번호가 없습니다.</div>`;return;}
+  listBox.innerHTML=codes.map(code=>{
+    const used=getTrialUsage(code);
+    const remain=Math.max(0,2-used);
+    const encoded=encodeURIComponent(code);
+    return `<div class="admin-trial-item"><div>${esc(code)} · 사용 ${used}/2 · 남은 ${remain}회</div><button class="red small" onclick="removeTrialCodeByEncoded('${encoded}')">삭제</button></div>`;
+  }).join("");
+}
+function renderDriveStatus(state){
+  const box=document.getElementById("driveStatus");
+  if(!box) return;
+  opsRuntimeState.driveConnected=!!state.connected;
+  opsRuntimeState.drivePermission=state.permission===true;
+  opsRuntimeState.lastSavedFile=state.lastFile||"";
+  box.className="drive-status-table";
+  const connected=!!state.connected;
+  const connectedLabel=connected?`✅ ${state.connectedText||"연결 성공"}`:`⛔ ${state.connectedText||"연결 실패"}`;
+  const permissionLabel=state.permission===true?"✅ 확인됨":state.permission===false?"❌ 미확인":"N/A";
+  const folderId=state.folderId||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO";
+  const serverTime=state.serverTime||"N/A";
+  const lastFile=state.lastFile||"(없음)";
+  const hint=state.hint?`<div class="hint">${esc(state.hint)}</div>`:"";
+  box.innerHTML=
+    `<div class="k">연결 상태</div><div class="v ${connected?"badge-ok":"badge-fail"}">${esc(connectedLabel)}</div>`+
+    `<div class="k">폴더 ID</div><div class="v">${esc(folderId)}</div>`+
+    `<div class="k">서버 시간</div><div class="v">${esc(serverTime)}</div>`+
+    `<div class="k">저장 권한</div><div class="v">${esc(permissionLabel)}</div>`+
+    `<div class="k">마지막 파일</div><div class="v file">${esc(lastFile)}</div>`+
+    hint;
+  renderOpsPanel();
+}
+function renderOpsPanel(){
+  const panel=document.getElementById("opsPanel");
+  const body=document.getElementById("opsPanelBody");
+  if(!panel||!body) return;
+  panel.classList.toggle("hidden",mode!=="exam");
+  if(mode!=="exam") return;
+  const onGithubPages=location.hostname.includes("github.io")&&location.pathname.includes("/gfield-smartcanvas");
+  const githubText=onGithubPages?`✅ 배포됨 (${location.hostname})`:`⛔ 로컬/미배포`;
+  const githubCls=onGithubPages?"ops-ok":"ops-bad";
+  const hasUrl=!!getVal("appsScriptUrl").trim();
+  const urlText=hasUrl?"✅ 입력됨":"⛔ Web App URL 필요";
+  const urlCls=hasUrl?"ops-ok":"ops-bad";
+  const driveText=opsRuntimeState.driveConnected?"✅ 연결됨":"⛔ 미연결";
+  const driveCls=opsRuntimeState.driveConnected?"ops-ok":"ops-bad";
+  const permText=opsRuntimeState.drivePermission?"✅ 확인됨":"❌ 미확인";
+  const permCls=opsRuntimeState.drivePermission?"ops-ok":"ops-bad";
+  const verify3=validationState.problem&&validationState.solution&&validationState.output;
+  const verifyText=verify3?"✅ 완료":"⛔ 미완료";
+  const verifyCls=verify3?"ops-ok":"ops-bad";
+  const fullDone=!!(fullCheckState.completed&&fullCheckState.allPassed);
+  const fullText=fullDone?"✅ 완료":"⛔ 미완료";
+  const fullCls=fullDone?"ops-ok":"ops-bad";
+  const pdfReady=canProceedToFinalOutput();
+  const pdfText=pdfReady?"✅ 가능":"⛔ 불가능";
+  const pdfCls=pdfReady?"ops-ok":"ops-bad";
+  const authText=opsRuntimeState.authMode==="admin"?"✅ 관리자 모드":opsRuntimeState.authMode==="trial"?`✅ 체험 모드 · 남은 ${Number(opsRuntimeState.authRemaining||0)}회`:"⛔ 미승인";
+  const authCls=opsRuntimeState.authMode?"ops-ok":"ops-bad";
+  body.innerHTML=
+    `<div class="k">접속 모드</div><div class="v ${authCls}">${esc(authText)}</div>`+
+    `<div class="k">Pages</div><div class="v ${githubCls}">${esc(githubText)}</div>`+
+    `<div class="k">Apps URL</div><div class="v ${urlCls}">${esc(urlText)}</div>`+
+    `<div class="k">Drive 연결</div><div class="v ${driveCls}">${esc(driveText)}</div>`+
+    `<div class="k">저장 권한</div><div class="v ${permCls}">${esc(permText)}</div>`+
+    `<div class="k">검증 3종</div><div class="v ${verifyCls}">${esc(verifyText)}</div>`+
+    `<div class="k">전체 점검</div><div class="v ${fullCls}">${esc(fullText)}</div>`+
+    `<div class="k">PDF 출력</div><div class="v ${pdfCls}">${esc(pdfText)}</div>`;
+}
 function chunk(a,n){const r=[];for(let i=0;i<a.length;i+=n)r.push(a.slice(i,i+n));return r}
 function gradeNote(){return document.getElementById("level").value+" 수준 풀이"}
 function currentPart(){return mode==="book" ? document.getElementById("targetPart").value : "exam"}
@@ -516,7 +800,11 @@ digitsum:()=>({
 })
 };
 
-function showIntro(){document.getElementById("intro").classList.remove("hidden");document.getElementById("layout").classList.remove("active");document.getElementById("modePill").textContent="인트로"}
+function isAccessApproved(){
+  const s=loadAccessSession();
+  return !!(s&&s.mode&&(s.mode==="admin"||s.mode==="trial"));
+}
+function showIntro(){if(!isAccessApproved())return;document.getElementById("intro").classList.remove("hidden");document.getElementById("layout").classList.remove("active");document.getElementById("modePill").textContent="인트로";renderTrialCodeAdminPanel();renderOpsPanel();}
 function applyModeUiVisibility(){
   const isExam=mode==="exam";
   const concept=document.getElementById("stepConcept");
@@ -528,7 +816,7 @@ function applyModeUiVisibility(){
   if(answer) answer.classList.toggle("hidden",isExam);
   if(wrong) wrong.classList.toggle("hidden",isExam);
 }
-function startMode(m){mode=m;document.getElementById("intro").classList.add("hidden");document.getElementById("layout").classList.add("active");document.getElementById("bookOptions").classList.toggle("hidden",mode!=="book");document.getElementById("modePill").textContent=mode==="exam"?"시험지 모드":"교재 모드";applyModeUiVisibility();render();updateMockStatus();}
+function startMode(m){if(!isAccessApproved())return;mode=m;document.getElementById("intro").classList.add("hidden");document.getElementById("layout").classList.add("active");document.getElementById("bookOptions").classList.toggle("hidden",mode!=="book");document.getElementById("modePill").textContent=mode==="exam"?"시험지 모드":"교재 모드";applyModeUiVisibility();render();updateMockStatus();renderTrialCodeAdminPanel();}
 function toggleSolutionReviewMode(){
   solutionReviewMode=!solutionReviewMode;
   const btn=document.getElementById("solutionReviewModeBtn");
@@ -925,7 +1213,7 @@ function coinSvg(){let cells="";for(let n=1;n<=4;n++){let startX=[18,72,132,196]
 function dotsSvg(){return `<svg viewBox="0 0 260 150"><text x="25" y="24" font-size="12" fill="#555">작은 정사각형 1개, 2개, 3개, …</text><g stroke="#555" stroke-width="3" fill="none"><rect x="40" y="58" width="45" height="45"/><line x1="85" y1="58" x2="130" y2="58"/><line x1="85" y1="103" x2="130" y2="103"/><line x1="130" y1="58" x2="130" y2="103"/><line x1="130" y1="58" x2="175" y2="58"/><line x1="130" y1="103" x2="175" y2="103"/><line x1="175" y1="58" x2="175" y2="103"/></g><g fill="#444">${[40,85,130,175].map(x=>`<circle cx="${x}" cy="58" r="4.5"/><circle cx="${x}" cy="103" r="4.5"/>`).join("")}</g><text x="215" y="86" font-size="30" fill="#666">…</text></svg>`;}
 function hexSvg(){return `<svg viewBox="0 0 260 150" aria-label="변을 공유한 육각형"><g stroke="#666" stroke-width="3.5" fill="none" stroke-linejoin="round"><polygon points="27,75 40,52 66,52 79,75 66,98 40,98"/><polygon points="66,75 79,52 105,52 118,75 105,98 79,98"/><polygon points="105,75 118,52 144,52 157,75 144,98 118,98"/><polygon points="144,75 157,52 183,52 196,75 183,98 157,98"/><polygon points="183,75 196,52 222,52 235,75 222,98 196,98"/></g><text x="237" y="82" font-size="24" fill="#666">…</text></svg>`;}
 
-function render(){document.getElementById("pages").innerHTML=mode==="exam"?renderExamOutput():renderBook();renderList();renderSolutionReviewPanel();updateValidationSummary();updateFinalGateStatus();renderSimilarSetCards();updateMockStatus();}
+function render(){document.getElementById("pages").innerHTML=mode==="exam"?renderExamOutput():renderBook();renderList();renderSolutionReviewPanel();updateValidationSummary();updateFinalGateStatus();renderSimilarSetCards();updateMockStatus();renderOpsPanel();}
 function renderList(){document.getElementById("problemList").innerHTML=problems.map((raw,i)=>{const p=sanitizeProblemRecord(raw);return `<div class="card"><h4>${i+1}. ${esc(p.type)} <span class="mode-pill">${p.part}</span></h4><p>${esc(p.stem)}</p><div class="verify">✓ ${esc(p.verify)} · ${gradeNote()}</div>${solutionReviewMode?`<div class="status-line" style="margin-top:6px">검토 체크: 단계 ${Array.isArray(p.solution)?p.solution.length:0}개 · 정답 ${esc(p.answer||"미입력")} · 제목 ${i+1}번 풀이</div>`:""}<div class="row" style="margin-top:7px"><button class="secondary small" onclick="move(${i},-1)">위</button><button class="secondary small" onclick="move(${i},1)">아래</button><button class="red small" onclick="del(${i})">삭제</button></div></div>`;}).join("");}
 function renderSolutionReviewPanel(){
   const panel=document.getElementById("solutionReviewStatus");
@@ -1610,10 +1898,132 @@ function addRecognizedSimilarSet(){
 }
 async function recognizeAndRecommendSet(){await mockAnalyzeImage();await mockRecommendSimilar();}
 function makeWrongAnswerNote(){mode="exam";setStatus("verifyStatus","오답노트 만들기: 불러온 문항에서 난이도별 유사문제를 생성하는 mock 구조가 준비되었습니다.");render();}
-function testDriveConnection(){setStatus("driveStatus",getVal("appsScriptUrl")?"개인 Google Drive 저장 폴더 확정됨 · 연결 테스트 mock 성공":"개인 Google Drive 저장 폴더 확정됨");}
-async function saveToDrive(){if(!getVal("appsScriptUrl")){saveJson();setStatus("driveStatus","개인 Google Drive 저장 폴더 확정됨 · Apps Script 미설정으로 로컬 JSON fallback");return;}setStatus("driveStatus","개인 Google Drive 저장 폴더 확정됨 · Drive 저장 mock 완료");}
+function splitDataUrl(dataUrl){
+  const m=String(dataUrl||"").match(/^data:([^;]+);base64,(.+)$/);
+  if(!m) return null;
+  return {mimeType:m[1],base64:m[2]};
+}
+async function postAppsScript(action,payload){
+  const url=getVal("appsScriptUrl").trim();
+  const body={action,payload,clientVersion:"exam-mode-v0.1"};
+  const res=await fetch(url,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error(`HTTP_${res.status}`);
+  return res.json();
+}
+async function testDriveConnection(){
+  const url=getVal("appsScriptUrl").trim();
+  if(!url){
+    renderDriveStatus({
+      connected:false,
+      connectedText:"Web App URL 필요",
+      folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+      serverTime:"N/A",
+      permission:false,
+      lastFile:"(없음)",
+      hint:"Web App URL 필요"
+    });
+    return;
+  }
+  try{
+    const result=await postAppsScript("testConnection",{});
+    if(result&&result.ok){
+      const d=result.data||{};
+      renderDriveStatus({
+        connected:d.success!==false,
+        connectedText:d.success===false?"연결 실패":"연결 성공",
+        folderId:d.folderId||"N/A",
+        serverTime:d.serverTime||"N/A",
+        permission:d.driveWritePermission===true,
+        lastFile:d.lastSavedFileName||"(없음)",
+        hint:d.lastSavedFileName?"마지막 저장 완료":""
+      });
+    }else{
+      const err=(result&&result.errors&&result.errors.length)?result.errors.join(", "):"UNKNOWN_ERROR";
+      renderDriveStatus({
+        connected:false,
+        connectedText:`연결 실패 (${err})`,
+        folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+        serverTime:"N/A",
+        permission:false,
+        lastFile:"(없음)"
+      });
+    }
+  }catch(e){
+    renderDriveStatus({
+      connected:false,
+      connectedText:`연결 실패 (${String(e.message||e)})`,
+      folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+      serverTime:"N/A",
+      permission:false,
+      lastFile:"(없음)"
+    });
+  }
+}
+async function saveToDrive(){
+  const url=getVal("appsScriptUrl").trim();
+  if(!url){
+    saveJson();
+    renderDriveStatus({
+      connected:false,
+      connectedText:"Web App URL 필요",
+      folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+      serverTime:"N/A",
+      permission:false,
+      lastFile:"(없음)",
+      hint:"Web App URL 필요 · 로컬 JSON fallback"
+    });
+    return;
+  }
+  try{
+    const project=collectProject();
+    const jsonResp=await postAppsScript("saveProjectJson",{jsonText:JSON.stringify(project,null,2)});
+    const htmlResp=await postAppsScript("saveHtmlSnapshot",{htmlText:document.documentElement.outerHTML});
+    const notes=[];
+    const savedFiles=[];
+    if(jsonResp&&jsonResp.ok) notes.push("JSON 저장");
+    if(jsonResp&&jsonResp.ok&&jsonResp.data&&jsonResp.data.fileName) savedFiles.push(jsonResp.data.fileName);
+    if(htmlResp&&htmlResp.ok) notes.push("HTML 저장");
+    if(htmlResp&&htmlResp.ok&&htmlResp.data&&htmlResp.data.fileName) savedFiles.push(htmlResp.data.fileName);
+
+    if(uploadedProblemImage&&uploadedProblemImage.dataUrl){
+      const img=splitDataUrl(uploadedProblemImage.dataUrl);
+      if(img){
+        const imgResp=await postAppsScript("saveImageBase64",{base64:img.base64,mimeType:img.mimeType});
+        if(imgResp&&imgResp.ok) notes.push("이미지 저장");
+        if(imgResp&&imgResp.ok&&imgResp.data&&imgResp.data.fileName) savedFiles.push(imgResp.data.fileName);
+      }
+    }
+    // NOTE: Browser print flow does not expose PDF bytes directly.
+    // TODO: Add a PDF generation pipeline and send action=savePdfBase64 when base64 is available.
+
+    const lastSaved=savedFiles.length?savedFiles[savedFiles.length-1]:"(확인 불가)";
+    renderDriveStatus({
+      connected:true,
+      connectedText:`저장 성공 (${notes.join(", ")})`,
+      folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+      serverTime:new Date().toLocaleString(),
+      permission:true,
+      lastFile:lastSaved,
+      hint:savedFiles.length?"마지막 저장 완료":""
+    });
+  }catch(e){
+    renderDriveStatus({
+      connected:false,
+      connectedText:`저장 실패 (${String(e.message||e)})`,
+      folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+      serverTime:"N/A",
+      permission:false,
+      lastFile:"(없음)"
+    });
+  }
+}
 const problemImageInput=document.getElementById("problemImage");if(problemImageInput)problemImageInput.addEventListener("change",e=>readProblemImageFile(e.target.files?.[0],"file"));
 const solutionRefImageInput=document.getElementById("solutionRefImage");if(solutionRefImageInput)solutionRefImageInput.addEventListener("change",e=>handleSolutionReferenceImageFile(e.target.files?.[0]));
+const accessCodeInputEl=document.getElementById("accessCodeInput");if(accessCodeInputEl)accessCodeInputEl.addEventListener("keydown",e=>{if(e.key==="Enter")approveAccessCode();});
 const uploadZone=document.getElementById("uploadZone");if(uploadZone)uploadZone.addEventListener("paste",handleProblemImagePaste);
 const fullCheckStatusEl=document.getElementById("fullCheckStatus");
 if(fullCheckStatusEl){
@@ -1625,6 +2035,16 @@ if(fullCheckStatusEl){
 document.addEventListener("paste",e=>{const introEl=document.getElementById("intro");if(introEl&&!introEl.classList.contains("hidden"))return;const active=document.activeElement;if(active&&["INPUT","TEXTAREA"].includes(active.tagName))return;handleProblemImagePaste(e);});
 ["title","time","level","examLayout","printOption","bookTitle","bookScope","bookUnit","coverTemplate","noteLines","contents","targetPart","appsScriptUrl","driveFolderId","aiProvider","aiApiKey","solutionRefMode","solutionRefText","solutionRefYoutubeUrl","solutionRefStartMin","solutionRefStartSec","solutionRefEndMin","solutionRefEndSec"].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener("input",render);});
 onSolutionReferenceModeChange();
+renderDriveStatus({
+  connected:false,
+  connectedText:"대기",
+  folderId:getVal("driveFolderId")||"1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO",
+  serverTime:"N/A",
+  permission:false,
+  lastFile:"(없음)",
+  hint:getVal("appsScriptUrl").trim()?"":"Web App URL 필요"
+});
+applyAccessGateVisibility();
 applyUrlPreset();
 </script>
 </body>

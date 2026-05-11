@@ -113,6 +113,7 @@ archive 안의 파일은 GitHub Pages 진입 파일로 사용하지 않습니다
 
 상세 문서:
 - [Apps Script API Contract](docs/APPS_SCRIPT_API_CONTRACT.md)
+- [Access Gate QA](docs/ACCESS_GATE_QA.md)
 
 액션 목록(고정):
 
