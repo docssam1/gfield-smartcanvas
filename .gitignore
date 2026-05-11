@@ -1,0 +1,23 @@
+﻿.env
+.env.local
+secrets.json
+*.key
+*.pem
+
+# Local/generated outputs belong in Google Drive, not GitHub.
+exports/
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+gfield_smart_canvas_project.json
+
+# Temporary local test files.
+tmp_*
+*.tmp
+
+# Never commit local API credentials.
+.env.*
+!/.env.example
+*secret*
+*credential*
