@@ -5,7 +5,7 @@
 - GitHub Repository: [docssam1/gfield-smartcanvas](https://github.com/docssam1/gfield-smartcanvas)
 - Repository full name: `docssam1/gfield-smartcanvas`
 - GitHub Pages 예상 URL: [https://docssam1.github.io/gfield-smartcanvas/](https://docssam1.github.io/gfield-smartcanvas/)
-- Google Drive 저장 폴더 ID: `1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO`
+- Google Drive 저장 폴더 ID: `1Hrc4hS-xlTmBHb1ruhVEGtd7IX6IKIO7`
 
 지필드 영재교육 강사용 시험지/교재 제작 도구입니다. 현재 운영 우선순위는 **시험지 모드**이며, `index.html` 하나로 GitHub Pages에서 정적 실행될 수 있게 유지합니다.
 

@@ -13,7 +13,7 @@
  * - OpenAI verification via server-side key
  */
 
-var DRIVE_FOLDER_ID = "1yeo05ciw-xELhaKfqu62JCPrgZwrCdCO";
+var DRIVE_FOLDER_ID = "1Hrc4hS-xlTmBHb1ruhVEGtd7IX6IKIO7";
 
 function doPost(e) {
   var startedAt = new Date().getTime();
