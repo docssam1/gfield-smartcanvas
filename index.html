@@ -46,6 +46,7 @@ textarea{min-height:72px;resize:vertical;line-height:1.55}
 .mode-card{background:#fbfcff;border:1px solid var(--line);border-radius:22px;padding:22px}
 .mode-card h2{margin:0 0 8px;color:var(--navy2)}
 .mode-card p{min-height:78px;color:#606a7c;line-height:1.65}
+.hold-badge{display:inline-block;font-size:11px;font-weight:1000;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:999px;padding:3px 8px;margin-bottom:8px}
 .layout{display:none;grid-template-columns:360px 1fr 410px;gap:12px;padding:12px;align-items:start}
 .layout.active{display:grid}
 .panel{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(20,40,80,.07);overflow:hidden}
@@ -241,9 +242,10 @@ G-FIELD Smart Canvas</div>
         <p>시험지 상단 폼, 4문항 단위 배치, 마지막 풀이 페이지를 자동 구성합니다.</p>
         <button onclick="startMode('exam')">시험지 제작 시작</button>
       </div>
-      <div class="mode-card">
+      <div id="bookModeCard" class="mode-card hidden">
+        <div class="hold-badge">보류</div>
         <h2>교재 모드</h2>
-        <p>표지 → Contents → 개념 이해 → 줄노트 → Mission → 답안까지 교재 형태로 자동 구성합니다.</p>
+        <p>현재 시험지 모드 우선 개발 중입니다.</p>
         <button onclick="startMode('book')">교재 제작 시작</button>
       </div>
     </div>
@@ -529,6 +531,14 @@ function renderAuthModeBadge(){
     opsRuntimeState.authMode="trial";
     opsRuntimeState.authRemaining=remain;
   }
+  updateIntroModeCardsVisibility();
+}
+function updateIntroModeCardsVisibility(){
+  const bookCard=document.getElementById("bookModeCard");
+  if(!bookCard) return;
+  const s=loadAccessSession();
+  const isAdmin=!!(s&&s.mode==="admin");
+  bookCard.classList.toggle("hidden",!isAdmin);
 }
 function applyAccessGateVisibility(){
   const s=loadAccessSession();
@@ -544,6 +554,7 @@ function applyAccessGateVisibility(){
     if(layout)layout.classList.remove("active");
   }
   renderAuthModeBadge();
+  updateIntroModeCardsVisibility();
   renderTrialCodeAdminPanel();
   renderOpsPanel();
 }
@@ -804,7 +815,7 @@ function isAccessApproved(){
   const s=loadAccessSession();
   return !!(s&&s.mode&&(s.mode==="admin"||s.mode==="trial"));
 }
-function showIntro(){if(!isAccessApproved())return;document.getElementById("intro").classList.remove("hidden");document.getElementById("layout").classList.remove("active");document.getElementById("modePill").textContent="인트로";renderTrialCodeAdminPanel();renderOpsPanel();}
+function showIntro(){if(!isAccessApproved())return;document.getElementById("intro").classList.remove("hidden");document.getElementById("layout").classList.remove("active");document.getElementById("modePill").textContent="인트로";updateIntroModeCardsVisibility();renderTrialCodeAdminPanel();renderOpsPanel();}
 function applyModeUiVisibility(){
   const isExam=mode==="exam";
   const concept=document.getElementById("stepConcept");
@@ -816,7 +827,7 @@ function applyModeUiVisibility(){
   if(answer) answer.classList.toggle("hidden",isExam);
   if(wrong) wrong.classList.toggle("hidden",isExam);
 }
-function startMode(m){if(!isAccessApproved())return;mode=m;document.getElementById("intro").classList.add("hidden");document.getElementById("layout").classList.add("active");document.getElementById("bookOptions").classList.toggle("hidden",mode!=="book");document.getElementById("modePill").textContent=mode==="exam"?"시험지 모드":"교재 모드";applyModeUiVisibility();render();updateMockStatus();renderTrialCodeAdminPanel();}
+function startMode(m){if(!isAccessApproved())return;if(m==="book"&&opsRuntimeState.authMode!=="admin"){setGateStatus("관리자 모드에서만 교재 모드에 접근할 수 있습니다.");return;}mode=m;document.getElementById("intro").classList.add("hidden");document.getElementById("layout").classList.add("active");document.getElementById("bookOptions").classList.toggle("hidden",mode!=="book");document.getElementById("modePill").textContent=mode==="exam"?"시험지 모드":"교재 모드";applyModeUiVisibility();render();updateMockStatus();renderTrialCodeAdminPanel();}
 function toggleSolutionReviewMode(){
   solutionReviewMode=!solutionReviewMode;
   const btn=document.getElementById("solutionReviewModeBtn");
