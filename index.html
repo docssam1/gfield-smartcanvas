@@ -371,7 +371,17 @@ G-FIELD Smart Canvas</div>
         <div class="field"><label>Drive Folder ID</label><input id="driveFolderId" value="1Hrc4hS-xlTmBHb1ruhVEGtd7IX6IKIO7" placeholder="Google Drive 폴더 ID"></div>
         <div class="row"><button class="secondary" onclick="testDriveConnection()">연결 테스트</button><button class="green" onclick="saveToDrive()">Drive 저장</button></div>
         <div id="driveStatus" class="status-line">개인 Google Drive 저장 폴더 확정됨</div>
-        <div class="row" style="margin-top:10px"><div class="field"><label>AI 제공자</label><select id="aiProvider"><option selected>Mock</option><option>OpenAI</option><option>Gemini</option><option>둘 다</option></select></div><div class="field"><label>API Key 상태</label><input id="aiApiKey" type="password" placeholder="AI 설정 필요"></div></div>
+        <div class="row" style="margin-top:10px">
+          <div class="field">
+            <label>AI 제공자</label>
+            <select id="aiProvider"><option selected>Mock</option><option>OpenAI</option><option>Gemini</option><option>둘 다</option></select>
+          </div>
+          <div class="field">
+            <label>API Key 상태</label>
+            <div id="aiKeyAdminWrap" class="hidden"><input id="aiApiKey" type="password" placeholder="관리자만 입력 가능"></div>
+            <div id="aiKeyMaskedWrap"><input type="text" value="********" readonly></div>
+          </div>
+        </div>
       </div>
       <div id="opsPanel" class="ops-panel">
         <h4>운영 체크 패널</h4>
@@ -414,6 +424,8 @@ const ADMIN_APPROVAL_CODE="777200";
 const ACCESS_SESSION_KEY="gfieldAccessSession";
 const TRIAL_CODES_KEY="gfieldTrialCodes";
 const TRIAL_USAGE_PREFIX="gfieldTrialUsage_";
+const UI_SETTINGS_KEY="gfieldUiSettingsV1";
+const AI_KEY_SESSION_KEY="gfieldAiKeySession";
 const forbiddenSolutionTerms=["조합","순열","nCr","combination","binomial","\\binom","\\choose"];
 const solutionRuleLibrary={
   shortest_path_grade3:{
@@ -441,6 +453,51 @@ const opsRuntimeState={
   authMode:"",
   authRemaining:null
 };
+function loadUiSettings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(UI_SETTINGS_KEY)||"{}");
+    if(saved&&typeof saved==="object"){
+      if(saved.appsScriptUrl) document.getElementById("appsScriptUrl").value=String(saved.appsScriptUrl);
+      if(saved.driveFolderId) document.getElementById("driveFolderId").value=String(saved.driveFolderId);
+      if(saved.aiProvider) document.getElementById("aiProvider").value=String(saved.aiProvider);
+    }
+  }catch(_e){}
+  try{
+    const key=sessionStorage.getItem(AI_KEY_SESSION_KEY)||"";
+    const keyInput=document.getElementById("aiApiKey");
+    const s=loadAccessSession();
+    const isAdmin=!!(s&&s.mode==="admin");
+    if(keyInput&&key&&isAdmin) keyInput.value=key;
+  }catch(_e){}
+}
+function saveUiSettings(){
+  const payload={
+    appsScriptUrl:getVal("appsScriptUrl").trim(),
+    driveFolderId:getVal("driveFolderId").trim(),
+    aiProvider:getVal("aiProvider")
+  };
+  localStorage.setItem(UI_SETTINGS_KEY,JSON.stringify(payload));
+}
+function saveAiKeySession(){
+  const s=loadAccessSession();
+  if(!s||s.mode!=="admin") return;
+  try{
+    sessionStorage.setItem(AI_KEY_SESSION_KEY,getVal("aiApiKey"));
+  }catch(_e){}
+}
+function updateApiKeyAccessUI(){
+  const s=loadAccessSession();
+  const isAdmin=!!(s&&s.mode==="admin");
+  const adminWrap=document.getElementById("aiKeyAdminWrap");
+  const maskedWrap=document.getElementById("aiKeyMaskedWrap");
+  const input=document.getElementById("aiApiKey");
+  if(adminWrap) adminWrap.classList.toggle("hidden",!isAdmin);
+  if(maskedWrap) maskedWrap.classList.toggle("hidden",isAdmin);
+  if(input){
+    input.disabled=!isAdmin;
+    if(!isAdmin) input.value="";
+  }
+}
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function getVal(id){return document.getElementById(id)?.value||"";}
@@ -532,6 +589,7 @@ function renderAuthModeBadge(){
     opsRuntimeState.authRemaining=remain;
   }
   updateIntroModeCardsVisibility();
+  updateApiKeyAccessUI();
 }
 function updateIntroModeCardsVisibility(){
   const bookCard=document.getElementById("bookModeCard");
@@ -555,6 +613,7 @@ function applyAccessGateVisibility(){
   }
   renderAuthModeBadge();
   updateIntroModeCardsVisibility();
+  updateApiKeyAccessUI();
   renderTrialCodeAdminPanel();
   renderOpsPanel();
 }
@@ -1452,6 +1511,7 @@ async function rebuildProblemAsSvg(imageData){return `<svg viewBox="0 0 120 70">
 let uploadedProblemImage = null;
 let recognizedProblem = null;
 let generatedSet = null;
+let variantNonce = 0;
 let validationState = { problem:false, solution:false, output:false };
 let fullCheckState = { completed:false, allPassed:false, checks:[], debugItems:[] };
 function focusPasteZone(){const zone=document.getElementById("uploadZone");if(zone){zone.focus();setStatus("imageStatus","캡처 이미지를 Ctrl+V로 붙여 넣으세요.");}}
@@ -1466,7 +1526,7 @@ function detectTypeByTag(tag){
 function buildRecognizedProblem(type){
   const base={
     mapping:{name:"대응 관계 규칙",improvedStem:"두 자리 수 AB에 대해 규칙 (A×B)-4를 적용한다. 다음 수 84에 대응하는 값을 구하세요.",improvedAnswer:"28"},
-    shape_op:{name:"도형-연산 대응",improvedStem:"도형-숫자 대응표와 연산기호 대응표를 이용해 식의 값을 계산하세요.",improvedAnswer:"대응표 기준 계산값"},
+    shape_op:{name:"도형-연산 대응",improvedStem:"도형값 대응이 △=6, □=4, ○=2이고, 연산 대응이 ↗는 +, ↘는 ×일 때 △ ↘ □ ↗ ○의 값을 구하세요.",improvedAnswer:"26"},
     grid:{name:"격자 음영 규칙",improvedStem:"격자에서 음영 칸의 자리값 규칙을 찾아, 빈 격자가 나타내는 수를 구하세요.",improvedAnswer:"자리값 합"},
     table:{name:"내용표 관계식",improvedStem:"내용표의 대응 관계를 식으로 나타내고 x=245일 때 y의 값을 구하세요.",improvedAnswer:"식 대입값"},
     decrease:{name:"감소식(초 길이)",improvedStem:"처음 길이 180mm인 초가 1분마다 6mm씩 줄어든다. 길이가 4cm 미만이 되는 최소 시간을 구하세요.",improvedAnswer:"24분"},
@@ -1479,19 +1539,67 @@ function countValue(id){
   if(Number.isNaN(n)) return 0;
   return Math.max(0,Math.min(5,Math.floor(n)));
 }
+function pickByNonce(arr,idx){
+  if(!Array.isArray(arr)||!arr.length) return null;
+  const base=((variantNonce%arr.length)+arr.length)%arr.length;
+  return arr[(base+idx)%arr.length];
+}
 function makeVariant(type,difficulty,idx){
   if(type==="mapping"){
     const set={easy:[62,53,41,72,83],same:[84,95,76,68,57],hard:[97,89,96,78,87]};
-    const num=(set[difficulty]||set.same)[idx%5];
+    const num=pickByNonce((set[difficulty]||set.same),idx);
     const a=Math.floor(num/10),b=num%10;
     return {stem:`두 자리 수 AB에 대해 (A×B)-4 규칙을 적용한다. ${num}에 대응하는 값을 구하세요.`,answer:String(a*b-4)};
   }
   if(type==="decrease"){
     const set={easy:[{m:150,d:5,t:5},{m:160,d:4,t:6}],same:[{m:180,d:6,t:4},{m:210,d:7,t:5}],hard:[{m:240,d:7,t:3},{m:275,d:8,t:2}]};
-    const c=(set[difficulty]||set.same)[idx%2];
+    const c=pickByNonce((set[difficulty]||set.same),idx);
     const threshold=c.t*10;
     const min=Math.floor((c.m-threshold)/c.d)+1;
     return {stem:`처음 길이 ${c.m}mm인 초가 1분마다 ${c.d}mm씩 줄어든다. 길이가 ${c.t}cm 미만이 되는 최소 시간을 구하세요.`,answer:`${min}분`};
+  }
+  if(type==="shape_op"){
+    const set={
+      easy:[
+        {map:"△=4, □=3, ○=2",expr:"△ + □ × ○",answer:"10"},
+        {map:"△=5, □=2, ○=3",expr:"△ × □ - ○",answer:"7"}
+      ],
+      same:[
+        {map:"△=6, □=4, ○=2",expr:"△ × □ + ○",answer:"26"},
+        {map:"△=7, □=3, ○=5",expr:"△ + □ × ○",answer:"22"}
+      ],
+      hard:[
+        {map:"△=8, □=5, ○=3",expr:"(△ - ○) × □",answer:"25"},
+        {map:"△=9, □=4, ○=2",expr:"△ × (□ + ○)",answer:"54"}
+      ]
+    };
+    const c=pickByNonce((set[difficulty]||set.same),idx);
+    return {
+      stem:`도형값 대응이 ${c.map}일 때 ${c.expr}의 값을 구하세요.`,
+      answer:c.answer
+    };
+  }
+  if(type==="table"){
+    const set={
+      easy:[{a:3,b:4,x:20},{a:2,b:7,x:15}],
+      same:[{a:4,b:9,x:25},{a:5,b:6,x:30}],
+      hard:[{a:7,b:8,x:40},{a:6,b:11,x:35}]
+    };
+    const c=pickByNonce((set[difficulty]||set.same),idx);
+    const y=c.a*c.x+c.b;
+    return {stem:`내용표의 규칙이 y=${c.a}x+${c.b}일 때, x=${c.x}에서 y를 구하세요.`,answer:String(y)};
+  }
+  if(type==="grid"){
+    const set={easy:[12,21],same:[34,43],hard:[56,65]};
+    const n=pickByNonce((set[difficulty]||set.same),idx);
+    const sum=String(n).split("").reduce((a,b)=>a+Number(b),0);
+    return {stem:`격자 규칙에서 두 자리 수 ${n}의 각 자리 합을 구하세요.`,answer:String(sum)};
+  }
+  if(type==="button"){
+    const set={easy:[{a:2,b:1,t:9}],same:[{a:2,b:3,t:17}],hard:[{a:3,b:2,t:32}]};
+    const c=pickByNonce((set[difficulty]||set.same),idx);
+    const x=(c.t-c.b)/c.a;
+    return {stem:`# 버튼을 한 번 누르면 수가 ${c.a}배 되고 ${c.b}만큼 더해집니다. 결과가 ${c.t}일 때 처음 수를 구하세요.`,answer:String(x)};
   }
   const label=difficulty==="easy"?"쉬움":difficulty==="hard"?"어려움":"동일";
   return {stem:`[${label}] ${buildRecognizedProblem(type).improvedStem}`,answer:buildRecognizedProblem(type).improvedAnswer};
@@ -1842,46 +1950,56 @@ const aiAdapter={
 };
 
 async function mockAnalyzeImage(){
-  const ready=!!uploadedProblemImage;
-  if(!ready){
-    recognizedProblem=null;
-    setStatus("aiStatus","분석할 이미지가 없습니다. 파일 선택 또는 Ctrl+V 붙여넣기를 먼저 해주세요.");
-    return;
+  try{
+    const ready=!!uploadedProblemImage;
+    if(!ready){
+      recognizedProblem=null;
+      setStatus("aiStatus","분석할 이미지가 없습니다. 파일 선택 또는 Ctrl+V 붙여넣기를 먼저 해주세요.");
+      setStatus("imageStatus","먼저 문제 이미지를 선택하거나 붙여넣어 주세요.");
+      return;
+    }
+    const result=await aiAdapter.recognizeProblem({
+      imageData:uploadedProblemImage,
+      correctionTag:getVal("recognitionTag")||"auto",
+      level:getVal("level"),
+      solutionReference:getSolutionReferencePayload()
+    });
+    if(result.ok&&result.data) recognizedProblem=result.data.recognizedProblem;
+    const msg=result.ok&&result.data?result.data.message:"문제 인식 결과가 없습니다.";
+    setStatus("aiStatus",`${msg}\n현재 AI 엔진: ${result.engine||currentAiEngineLabel()}`);
+  }catch(e){
+    setStatus("aiStatus",`문제 인식 실행 중 오류가 발생했습니다.\n${String(e&&e.message?e.message:e)}`);
   }
-  const result=await aiAdapter.recognizeProblem({
-    imageData:uploadedProblemImage,
-    correctionTag:getVal("recognitionTag")||"auto",
-    level:getVal("level"),
-    solutionReference:getSolutionReferencePayload()
-  });
-  if(result.ok&&result.data) recognizedProblem=result.data.recognizedProblem;
-  const msg=result.ok&&result.data?result.data.message:"문제 인식 결과가 없습니다.";
-  setStatus("aiStatus",`${msg}\n현재 AI 엔진: ${result.engine||currentAiEngineLabel()}`);
 }
 async function mockRecommendSimilar(){
-  if(!recognizedProblem){
-    const box=document.getElementById("similarBox");
-    if(box) box.innerHTML="";
-    setStatus("aiStatus","먼저 문제 인식을 실행해 주세요.");
-    return;
+  try{
+    if(!recognizedProblem){
+      const box=document.getElementById("similarBox");
+      if(box) box.innerHTML="";
+      setStatus("aiStatus","먼저 문제 인식을 실행해 주세요.");
+      return;
+    }
+    variantNonce+=1;
+    const result=await aiAdapter.generateSimilarSet({
+      recognizedProblem,
+      counts:{easy:countValue("easyCount"),same:countValue("sameCount"),hard:countValue("hardCount")},
+      level:getVal("level"),
+      solutionReference:getSolutionReferencePayload()
+    });
+    if(!result.ok){
+      setStatus("aiStatus",`유사문항 세트 생성에 실패했습니다.\n오류: ${(result.errors||[]).join(", ")||"UNKNOWN_ERROR"}`);
+      return;
+    }
+    generatedSet=result.data?result.data.generatedSet:null;
+    validationState={problem:false,solution:false,output:false};
+    invalidateFullCheck();
+    updateValidationSummary();
+    updateFinalGateStatus();
+    renderSimilarSetCards();
+    setStatus("aiStatus",`${result.data&&result.data.message?result.data.message:"세트 생성 완료"}\n현재 AI 엔진: ${result.engine||currentAiEngineLabel()}`);
+  }catch(e){
+    setStatus("aiStatus",`유사문항 세트 생성 중 오류가 발생했습니다.\n${String(e&&e.message?e.message:e)}`);
   }
-  const result=await aiAdapter.generateSimilarSet({
-    recognizedProblem,
-    counts:{easy:countValue("easyCount"),same:countValue("sameCount"),hard:countValue("hardCount")},
-    level:getVal("level"),
-    solutionReference:getSolutionReferencePayload()
-  });
-  if(!result.ok){
-    setStatus("aiStatus",`유사문항 세트 생성에 실패했습니다.\n오류: ${(result.errors||[]).join(", ")||"UNKNOWN_ERROR"}`);
-    return;
-  }
-  generatedSet=result.data?result.data.generatedSet:null;
-  validationState={problem:false,solution:false,output:false};
-  invalidateFullCheck();
-  updateValidationSummary();
-  updateFinalGateStatus();
-  renderSimilarSetCards();
-  setStatus("aiStatus",`${result.data&&result.data.message?result.data.message:"세트 생성 완료"}\n현재 AI 엔진: ${result.engine||currentAiEngineLabel()}`);
 }
 function addRecognizedSimilarSet(){
   if(!recognizedProblem)return;
@@ -2045,7 +2163,21 @@ if(fullCheckStatusEl){
 }
 document.addEventListener("paste",e=>{const introEl=document.getElementById("intro");if(introEl&&!introEl.classList.contains("hidden"))return;const active=document.activeElement;if(active&&["INPUT","TEXTAREA"].includes(active.tagName))return;handleProblemImagePaste(e);});
 ["title","time","level","examLayout","printOption","bookTitle","bookScope","bookUnit","coverTemplate","noteLines","contents","targetPart","appsScriptUrl","driveFolderId","aiProvider","aiApiKey","solutionRefMode","solutionRefText","solutionRefYoutubeUrl","solutionRefStartMin","solutionRefStartSec","solutionRefEndMin","solutionRefEndSec"].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener("input",render);});
+["appsScriptUrl","driveFolderId","aiProvider"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el) return;
+  const handler=()=>saveUiSettings();
+  el.addEventListener("input",handler);
+  el.addEventListener("change",handler);
+});
+const aiApiKeyEl=document.getElementById("aiApiKey");
+if(aiApiKeyEl){
+  const keyHandler=()=>saveAiKeySession();
+  aiApiKeyEl.addEventListener("input",keyHandler);
+  aiApiKeyEl.addEventListener("change",keyHandler);
+}
 onSolutionReferenceModeChange();
+loadUiSettings();
 renderDriveStatus({
   connected:false,
   connectedText:"대기",
