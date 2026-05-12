@@ -330,7 +330,7 @@ G-FIELD Smart Canvas</div>
         <div class="field" style="margin:0"><label>동일 난이도 개수</label><input id="sameCount" type="number" min="0" max="5" value="1"></div>
         <div class="field" style="margin:0"><label>어려운 난이도 개수</label><input id="hardCount" type="number" min="0" max="5" value="1"></div>
       </div>
-      <div class="row" style="margin-top:8px"><button class="secondary" onclick="mockAnalyzeImage()">문제 인식</button><button class="secondary" onclick="mockRecommendSimilar()">유사문항 세트 생성</button></div>
+      <div class="row" style="margin-top:8px"><button class="secondary" onclick="mockAnalyzeImage()">AI 문제 분석</button><button class="secondary" onclick="mockRecommendSimilar()">유사문제 추천</button></div>
       <div id="internalTools" class="row hidden" style="margin-top:8px"><button class="green" onclick="recognizeAndRecommendSet()">인식 + 개선문항/유사문항 세트 생성</button></div>
       <div class="row hidden" style="margin-top:8px"><button class="green" onclick="loadUploadedSixProblemSet()">업로드 6문제 세트 불러오기</button></div>
       <div id="similarBox" class="recommend-grid"></div>
@@ -374,12 +374,13 @@ G-FIELD Smart Canvas</div>
         <div class="row" style="margin-top:10px">
           <div class="field">
             <label>AI 제공자</label>
-            <select id="aiProvider"><option selected>Mock</option><option>OpenAI</option><option>Gemini</option><option>둘 다</option></select>
+            <select id="aiProvider"><option selected>Mock</option><option>Gemini</option><option>OpenAI</option><option>Hybrid</option></select>
           </div>
           <div class="field">
             <label>API Key 상태</label>
             <div id="aiKeyAdminWrap" class="hidden"><input id="aiApiKey" type="password" placeholder="관리자만 입력 가능"></div>
-            <div id="aiKeyMaskedWrap"><input type="text" value="********" readonly></div>
+            <div id="aiKeyMaskedWrap"><input type="text" id="aiApiKeyMasked" value="********" readonly></div>
+            <div id="aiKeyStatus" class="status-line" style="margin-top:6px">키 미입력</div>
           </div>
         </div>
       </div>
@@ -425,7 +426,6 @@ const ACCESS_SESSION_KEY="gfieldAccessSession";
 const TRIAL_CODES_KEY="gfieldTrialCodes";
 const TRIAL_USAGE_PREFIX="gfieldTrialUsage_";
 const UI_SETTINGS_KEY="gfieldUiSettingsV1";
-const AI_KEY_SESSION_KEY="gfieldAiKeySession";
 const forbiddenSolutionTerms=["조합","순열","nCr","combination","binomial","\\binom","\\choose"];
 const solutionRuleLibrary={
   shortest_path_grade3:{
@@ -453,50 +453,55 @@ const opsRuntimeState={
   authMode:"",
   authRemaining:null
 };
-function loadUiSettings(){
+let aiApiKeyConfigured=false;
+function loadLocalSettings(){
   try{
     const saved=JSON.parse(localStorage.getItem(UI_SETTINGS_KEY)||"{}");
     if(saved&&typeof saved==="object"){
       if(saved.appsScriptUrl) document.getElementById("appsScriptUrl").value=String(saved.appsScriptUrl);
       if(saved.driveFolderId) document.getElementById("driveFolderId").value=String(saved.driveFolderId);
-      if(saved.aiProvider) document.getElementById("aiProvider").value=String(saved.aiProvider);
+      if(saved.aiProvider){
+        const p=String(saved.aiProvider)==="둘 다"?"Hybrid":String(saved.aiProvider);
+        document.getElementById("aiProvider").value=p;
+      }
+      aiApiKeyConfigured=!!saved.aiApiKeyConfigured;
     }
   }catch(_e){}
-  try{
-    const key=sessionStorage.getItem(AI_KEY_SESSION_KEY)||"";
-    const keyInput=document.getElementById("aiApiKey");
-    const s=loadAccessSession();
-    const isAdmin=!!(s&&s.mode==="admin");
-    if(keyInput&&key&&isAdmin) keyInput.value=key;
-  }catch(_e){}
+  updateAiStatus();
 }
-function saveUiSettings(){
+function saveLocalSettings(){
   const payload={
     appsScriptUrl:getVal("appsScriptUrl").trim(),
     driveFolderId:getVal("driveFolderId").trim(),
-    aiProvider:getVal("aiProvider")
+    aiProvider:getVal("aiProvider"),
+    aiApiKeyConfigured:!!aiApiKeyConfigured
   };
   localStorage.setItem(UI_SETTINGS_KEY,JSON.stringify(payload));
 }
-function saveAiKeySession(){
-  const s=loadAccessSession();
-  if(!s||s.mode!=="admin") return;
-  try{
-    sessionStorage.setItem(AI_KEY_SESSION_KEY,getVal("aiApiKey"));
-  }catch(_e){}
-}
+function loadUiSettings(){loadLocalSettings();}
+function saveUiSettings(){saveLocalSettings();}
 function updateApiKeyAccessUI(){
   const s=loadAccessSession();
   const isAdmin=!!(s&&s.mode==="admin");
   const adminWrap=document.getElementById("aiKeyAdminWrap");
   const maskedWrap=document.getElementById("aiKeyMaskedWrap");
   const input=document.getElementById("aiApiKey");
+  const masked=document.getElementById("aiApiKeyMasked");
   if(adminWrap) adminWrap.classList.toggle("hidden",!isAdmin);
   if(maskedWrap) maskedWrap.classList.toggle("hidden",isAdmin);
+  if(masked) masked.value=aiApiKeyConfigured?"********":"(미입력)";
   if(input){
     input.disabled=!isAdmin;
     if(!isAdmin) input.value="";
   }
+  updateAiStatus();
+}
+function updateAiStatus(extra){
+  const status=document.getElementById("aiKeyStatus");
+  if(status) status.textContent=aiApiKeyConfigured?"키 입력됨 / 서버 저장 필요":"키 미입력";
+  const base=`현재 AI 엔진: ${currentAiEngineLabel()}\n${aiApiKeyConfigured?"키 입력됨 / 서버 저장 필요":"키 미입력"}`;
+  const msg=extra?`${base}\n${extra}`:base;
+  setStatus("aiStatus",msg);
 }
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
@@ -1079,11 +1084,7 @@ function currentAiEngineLabel(){
 }
 
 function updateMockStatus(){
-  const provider=currentAiProvider();
-  const msg=provider==="Mock"
-    ? "현재 AI 엔진: Mock\n실제 OCR/AI 연결 전 테스트 모드입니다."
-    : `현재 AI 엔진: ${currentAiEngineLabel()}\nAPI Key는 현재 화면 입력값으로만 사용 준비하며, 프로젝트 JSON/GitHub에는 저장하지 않습니다.`;
-  setStatus("aiStatus",msg);
+  updateAiStatus("실제 OCR/AI 연결 전 테스트 모드입니다.");
 }
 function highlightCheckTarget(el){
   if(!el) return;
@@ -1387,7 +1388,7 @@ function mirrorSolutionHtml(raw,no){
 }
 function move(i,d){let j=i+d;if(j<0||j>=problems.length)return;[problems[i],problems[j]]=[problems[j],problems[i]];invalidateFullCheck();render();}
 function del(i){problems.splice(i,1);invalidateFullCheck();render();}
-function collectProject(){return {mode,title:getVal("title"),time:getVal("time"),level:getVal("level"),examLayout:getVal("examLayout"),printOption:getVal("printOption"),bookTitle:getVal("bookTitle"),bookScope:getVal("bookScope"),bookUnit:getVal("bookUnit"),coverTemplate:getVal("coverTemplate"),noteLines:getVal("noteLines"),contents:getVal("contents"),driveFolderId:getVal("driveFolderId"),appsScriptUrl:getVal("appsScriptUrl"),aiProvider:getVal("aiProvider"),aiApiKeyConfigured:!!getVal("aiApiKey"),solutionReference:getSolutionReferencePayload(),solutionReviewMode,ignoreHandwritingInRecognition:true,problems};}
+function collectProject(){return {mode,title:getVal("title"),time:getVal("time"),level:getVal("level"),examLayout:getVal("examLayout"),printOption:getVal("printOption"),bookTitle:getVal("bookTitle"),bookScope:getVal("bookScope"),bookUnit:getVal("bookUnit"),coverTemplate:getVal("coverTemplate"),noteLines:getVal("noteLines"),contents:getVal("contents"),driveFolderId:getVal("driveFolderId"),appsScriptUrl:getVal("appsScriptUrl"),aiProvider:getVal("aiProvider"),aiApiKeyConfigured:!!aiApiKeyConfigured,solutionReference:getSolutionReferencePayload(),solutionReviewMode,ignoreHandwritingInRecognition:true,problems};}
 function saveJson(){const blob=new Blob([JSON.stringify(collectProject(),null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="gfield_smart_canvas_project.json";a.click();URL.revokeObjectURL(a.href);}
 document.getElementById("jsonFile").addEventListener("change",e=>{
   const f=e.target.files[0];
@@ -1401,6 +1402,7 @@ document.getElementById("jsonFile").addEventListener("change",e=>{
     });
     const keyInput=document.getElementById("aiApiKey");
     if(keyInput)keyInput.value="";
+    aiApiKeyConfigured=!!d.aiApiKeyConfigured;
     if(d.solutionReference){
       const sr=d.solutionReference;
       const modeEl=document.getElementById("solutionRefMode");
@@ -1427,55 +1429,56 @@ document.getElementById("jsonFile").addEventListener("change",e=>{
     const btn=document.getElementById("solutionReviewModeBtn");
     if(btn)btn.textContent=solutionReviewMode?"풀이 검토 모드 끄기":"풀이 검토 모드 켜기";
     problems=(d.problems||[]).map(sanitizeProblemRecord);
+    saveLocalSettings();
+    updateApiKeyAccessUI();
     invalidateFullCheck();
     startMode(mode);
   };
   r.readAsText(f);
 });
 async function verifyProblemWithAI(){
-  if(!generatedSet){
-    validationState.problem=false;
-    setStatus("verifyStatus","문제 검증 대기: 먼저 문제 인식 후 유사문항 세트를 생성해 주세요.");
-    updateValidationSummary();
-    updateFinalGateStatus();
-    renderSimilarSetCards();
-    return {ok:false};
-  }
+  const rp=recognizedProblem||ensureRecognizedProblemFallback();
+  const gs=generatedSet||{
+    type:rp.type,
+    easy:countValue("easyCount"),
+    same:countValue("sameCount"),
+    hard:countValue("hardCount"),
+    total:1+countValue("easyCount")+countValue("sameCount")+countValue("hardCount"),
+    improved:true,
+    fallback:true
+  };
   const result=await aiAdapter.verifyProblem({
-    recognizedProblem,
-    generatedSet,
+    recognizedProblem:rp,
+    generatedSet:gs,
     level:getVal("level"),
     solutionReference:getSolutionReferencePayload()
   });
   const checks=(result.data&&result.data.checks)||[];
   validationState.problem=!!result.ok;
-  setStatus("verifyStatus",`문제 검증 ${result.ok?"완료":"확인 필요"}(${result.engine||currentAiEngineLabel()})\n${checks.join("\n")}${result.errors&&result.errors.length?`\n오류: ${result.errors.join(", ")}`:""}`);
+  setStatus("verifyStatus",`문제 검증 ${result.ok?"완료":"확인 필요"}(${result.engine||currentAiEngineLabel()})\n${checks.join("\n")}${result.errors&&result.errors.length?`\n오류: ${result.errors.join(", ")}`:""}${result.warnings&&result.warnings.length?`\n경고: ${result.warnings.join(", ")}`:""}`);
   updateValidationSummary();
   updateFinalGateStatus();
   renderSimilarSetCards();
+  if(!result.ok) updateAiStatus(`[verifyProblem] 실패: ${(result.errors||[]).join(", ")||"UNKNOWN_ERROR"}${result.warnings&&result.warnings.length?` / ${result.warnings.join(", ")}`:""}`);
   return result;
 }
 async function verifySolutionWithAI(){
   if(!solutionReviewMode){solutionReviewMode=true;const btn=document.getElementById("solutionReviewModeBtn");if(btn)btn.textContent="풀이 검토 모드 끄기";}
-  if(!generatedSet){
-    validationState.solution=false;
-    setStatus("verifyStatus","풀이 검증 대기: 먼저 문제 인식 후 유사문항 세트를 생성해 주세요.");
-    renderSolutionReviewPanel();
-    updateValidationSummary();
-    updateFinalGateStatus();
-    renderSimilarSetCards();
-    return {ok:false};
-  }
+  const rp=recognizedProblem||ensureRecognizedProblemFallback();
+  const gs=generatedSet||{
+    type:rp.type,easy:countValue("easyCount"),same:countValue("sameCount"),hard:countValue("hardCount"),
+    total:1+countValue("easyCount")+countValue("sameCount")+countValue("hardCount"),improved:true,fallback:true
+  };
   const result=await aiAdapter.verifySolution({
-    recognizedProblem,
-    generatedSet,
-    problems,
+    recognizedProblem:rp,
+    generatedSet:gs,
+    problems:problems.length?problems:buildPendingGeneratedProblems(),
     level:getVal("level"),
     solutionReference:getSolutionReferencePayload()
   });
   const checks=(result.data&&result.data.checks)||[];
   validationState.solution=!!result.ok;
-  setStatus("verifyStatus",`풀이 검증 ${result.ok?"완료":"확인 필요"}(${result.engine||currentAiEngineLabel()})\n${checks.join("\n")}${result.errors&&result.errors.length?`\n오류: ${result.errors.join(", ")}`:""}`);
+  setStatus("verifyStatus",`풀이 검증 ${result.ok?"완료":"확인 필요"}(${result.engine||currentAiEngineLabel()})\n${checks.join("\n")}${result.errors&&result.errors.length?`\n오류: ${result.errors.join(", ")}`:""}${result.warnings&&result.warnings.length?`\n경고: ${result.warnings.join(", ")}`:""}`);
   renderSolutionReviewPanel();
   updateValidationSummary();
   updateFinalGateStatus();
@@ -1483,24 +1486,21 @@ async function verifySolutionWithAI(){
   return result;
 }
 async function verifyOutputLayout(){
-  if(!generatedSet){
-    validationState.output=false;
-    setStatus("verifyStatus","출력 검증 대기: 먼저 문제 인식 후 유사문항 세트를 생성해 주세요.");
-    updateValidationSummary();
-    updateFinalGateStatus();
-    renderSimilarSetCards();
-    return {ok:false};
-  }
+  const rp=recognizedProblem||ensureRecognizedProblemFallback();
+  const gs=generatedSet||{
+    type:rp.type,easy:countValue("easyCount"),same:countValue("sameCount"),hard:countValue("hardCount"),
+    total:1+countValue("easyCount")+countValue("sameCount")+countValue("hardCount"),improved:true,fallback:true
+  };
   const result=await aiAdapter.verifyOutput({
-    recognizedProblem,
-    generatedSet,
+    recognizedProblem:rp,
+    generatedSet:gs,
     examLayout:getVal("examLayout"),
     printOption:getVal("printOption"),
     problems
   });
   const checks=(result.data&&result.data.checks)||[];
   validationState.output=!!result.ok;
-  setStatus("verifyStatus",`출력 검증 ${result.ok?"완료":"확인 필요"}(${result.engine||currentAiEngineLabel()})\n${checks.join("\n")}${result.errors&&result.errors.length?`\n오류: ${result.errors.join(", ")}`:""}`);
+  setStatus("verifyStatus",`출력 검증 ${result.ok?"완료":"확인 필요"}(${result.engine||currentAiEngineLabel()})\n${checks.join("\n")}${result.errors&&result.errors.length?`\n오류: ${result.errors.join(", ")}`:""}${result.warnings&&result.warnings.length?`\n경고: ${result.warnings.join(", ")}`:""}`);
   updateValidationSummary();
   updateFinalGateStatus();
   renderSimilarSetCards();
@@ -1522,6 +1522,13 @@ function handleProblemImagePaste(e){const items=[...(e.clipboardData?.items||[])
 function detectTypeByTag(tag){
   const map={auto:"mapping",mapping:"mapping",shape_op:"shape_op",grid:"grid",table:"table",decrease:"decrease",button:"button"};
   return map[tag]||"mapping";
+}
+function ensureRecognizedProblemFallback(){
+  if(recognizedProblem) return recognizedProblem;
+  const type=detectTypeByTag(getVal("recognitionTag")||"auto");
+  const info=buildRecognizedProblem(type);
+  recognizedProblem={type,info,source:"fallback",at:new Date().toISOString()};
+  return recognizedProblem;
 }
 function buildRecognizedProblem(type){
   const base={
@@ -1640,7 +1647,7 @@ const mockAdapter={
   async generateSimilarSet(payload={}){
     const source=payload.recognizedProblem;
     if(!source) return {ok:false,message:"먼저 문제 인식을 실행해 주세요."};
-    const easy=countValue("easyCount"),same=countValue("sameCount"),hard=countValue("hardCount");
+    const easy=Number(payload.easy??0),same=Number(payload.same??0),hard=Number(payload.hard??0);
     const total=1+easy+same+hard;
     return {
       ok:true,
@@ -1744,7 +1751,7 @@ function isNumber(v){
 function validateActionPayload(action,payload){
   if(!isPlainObject(payload)) return {ok:false,reason:"payload must be object"};
   if(action==="recognizeProblem"){
-    if(!isPlainObject(payload.imageData)) return {ok:false,reason:"imageData is required object"};
+    if(payload.imageData!=null && !isPlainObject(payload.imageData)) return {ok:false,reason:"imageData must be object"};
     if(!isString(payload.correctionTag)) return {ok:false,reason:"correctionTag is required string"};
     if(!isString(payload.level)) return {ok:false,reason:"level is required string"};
     if(!isPlainObject(payload.solutionReference)) return {ok:false,reason:"solutionReference is required object"};
@@ -1759,23 +1766,23 @@ function validateActionPayload(action,payload){
     return {ok:true};
   }
   if(action==="verifyProblem"){
-    if(!isPlainObject(payload.recognizedProblem)) return {ok:false,reason:"recognizedProblem is required object"};
-    if(!isPlainObject(payload.generatedSet)) return {ok:false,reason:"generatedSet is required object"};
+    if(payload.recognizedProblem!=null && !isPlainObject(payload.recognizedProblem)) return {ok:false,reason:"recognizedProblem must be object"};
+    if(payload.generatedSet!=null && !isPlainObject(payload.generatedSet)) return {ok:false,reason:"generatedSet must be object"};
     if(!isString(payload.level)) return {ok:false,reason:"level is required string"};
     if(!isPlainObject(payload.solutionReference)) return {ok:false,reason:"solutionReference is required object"};
     return {ok:true};
   }
   if(action==="verifySolution"){
-    if(!isPlainObject(payload.recognizedProblem)) return {ok:false,reason:"recognizedProblem is required object"};
-    if(!isPlainObject(payload.generatedSet)) return {ok:false,reason:"generatedSet is required object"};
-    if(!Array.isArray(payload.problems)) return {ok:false,reason:"problems is required array"};
+    if(payload.recognizedProblem!=null && !isPlainObject(payload.recognizedProblem)) return {ok:false,reason:"recognizedProblem must be object"};
+    if(payload.generatedSet!=null && !isPlainObject(payload.generatedSet)) return {ok:false,reason:"generatedSet must be object"};
+    if(payload.problems!=null && !Array.isArray(payload.problems)) return {ok:false,reason:"problems must be array"};
     if(!isString(payload.level)) return {ok:false,reason:"level is required string"};
     if(!isPlainObject(payload.solutionReference)) return {ok:false,reason:"solutionReference is required object"};
     return {ok:true};
   }
   if(action==="verifyOutput"){
-    if(!isPlainObject(payload.recognizedProblem)) return {ok:false,reason:"recognizedProblem is required object"};
-    if(!isPlainObject(payload.generatedSet)) return {ok:false,reason:"generatedSet is required object"};
+    if(payload.recognizedProblem!=null && !isPlainObject(payload.recognizedProblem)) return {ok:false,reason:"recognizedProblem must be object"};
+    if(payload.generatedSet!=null && !isPlainObject(payload.generatedSet)) return {ok:false,reason:"generatedSet must be object"};
     if(!isString(payload.examLayout)) return {ok:false,reason:"examLayout is required string"};
     if(!isString(payload.printOption)) return {ok:false,reason:"printOption is required string"};
     return {ok:true};
@@ -1825,7 +1832,7 @@ const apiClient={
     // TODO: API Key는 서버 PropertiesService 또는 서버 환경변수에만 저장합니다.
     // TODO: 프론트는 API Key를 index.html, JSON, localStorage, GitHub에 저장하지 않습니다.
     if(!API_ACTIONS.includes(action)){
-      return buildApiResponse({ok:false,errors:["INVALID_PAYLOAD"],engine:"mock",elapsedMs:Date.now()-startedAt});
+      return buildApiResponse({ok:false,warnings:[`action=${action}`],errors:["INVALID_PAYLOAD"],engine:"mock",elapsedMs:Date.now()-startedAt});
     }
     const validation=validateActionPayload(action,payload);
     if(!validation.ok){
@@ -1953,8 +1960,8 @@ async function mockAnalyzeImage(){
   try{
     const ready=!!uploadedProblemImage;
     if(!ready){
-      recognizedProblem=null;
-      setStatus("aiStatus","분석할 이미지가 없습니다. 파일 선택 또는 Ctrl+V 붙여넣기를 먼저 해주세요.");
+      recognizedProblem=ensureRecognizedProblemFallback();
+      updateAiStatus("문제 이미지 또는 원문항이 필요합니다. 현재는 테스트용 샘플 원문항으로 진행합니다.");
       setStatus("imageStatus","먼저 문제 이미지를 선택하거나 붙여넣어 주세요.");
       return;
     }
@@ -1966,28 +1973,23 @@ async function mockAnalyzeImage(){
     });
     if(result.ok&&result.data) recognizedProblem=result.data.recognizedProblem;
     const msg=result.ok&&result.data?result.data.message:"문제 인식 결과가 없습니다.";
-    setStatus("aiStatus",`${msg}\n현재 AI 엔진: ${result.engine||currentAiEngineLabel()}`);
+    updateAiStatus(msg);
   }catch(e){
-    setStatus("aiStatus",`문제 인식 실행 중 오류가 발생했습니다.\n${String(e&&e.message?e.message:e)}`);
+    updateAiStatus(`문제 인식 실행 중 오류가 발생했습니다: ${String(e&&e.message?e.message:e)}`);
   }
 }
 async function mockRecommendSimilar(){
   try{
-    if(!recognizedProblem){
-      const box=document.getElementById("similarBox");
-      if(box) box.innerHTML="";
-      setStatus("aiStatus","먼저 문제 인식을 실행해 주세요.");
-      return;
-    }
+    const rp=recognizedProblem||ensureRecognizedProblemFallback();
     variantNonce+=1;
     const result=await aiAdapter.generateSimilarSet({
-      recognizedProblem,
+      recognizedProblem:rp,
       counts:{easy:countValue("easyCount"),same:countValue("sameCount"),hard:countValue("hardCount")},
       level:getVal("level"),
       solutionReference:getSolutionReferencePayload()
     });
     if(!result.ok){
-      setStatus("aiStatus",`유사문항 세트 생성에 실패했습니다.\n오류: ${(result.errors||[]).join(", ")||"UNKNOWN_ERROR"}`);
+      updateAiStatus(`[generateSimilarSet] 실패: ${(result.errors||[]).join(", ")||"UNKNOWN_ERROR"}${result.warnings&&result.warnings.length?` / ${result.warnings.join(", ")}`:""}`);
       return;
     }
     generatedSet=result.data?result.data.generatedSet:null;
@@ -1996,9 +1998,9 @@ async function mockRecommendSimilar(){
     updateValidationSummary();
     updateFinalGateStatus();
     renderSimilarSetCards();
-    setStatus("aiStatus",`${result.data&&result.data.message?result.data.message:"세트 생성 완료"}\n현재 AI 엔진: ${result.engine||currentAiEngineLabel()}`);
+    updateAiStatus(`${result.data&&result.data.message?result.data.message:"세트 생성 완료"}${uploadedProblemImage?"":" / 샘플 원문항 기반 테스트 생성"}`);
   }catch(e){
-    setStatus("aiStatus",`유사문항 세트 생성 중 오류가 발생했습니다.\n${String(e&&e.message?e.message:e)}`);
+    updateAiStatus(`유사문항 세트 생성 중 오류: ${String(e&&e.message?e.message:e)}`);
   }
 }
 function addRecognizedSimilarSet(){
@@ -2166,18 +2168,22 @@ document.addEventListener("paste",e=>{const introEl=document.getElementById("int
 ["appsScriptUrl","driveFolderId","aiProvider"].forEach(id=>{
   const el=document.getElementById(id);
   if(!el) return;
-  const handler=()=>saveUiSettings();
+  const handler=()=>{saveLocalSettings();updateAiStatus();};
   el.addEventListener("input",handler);
   el.addEventListener("change",handler);
 });
 const aiApiKeyEl=document.getElementById("aiApiKey");
 if(aiApiKeyEl){
-  const keyHandler=()=>saveAiKeySession();
+  const keyHandler=()=>{
+    aiApiKeyConfigured=!!getVal("aiApiKey").trim();
+    saveLocalSettings();
+    updateApiKeyAccessUI();
+  };
   aiApiKeyEl.addEventListener("input",keyHandler);
   aiApiKeyEl.addEventListener("change",keyHandler);
 }
 onSolutionReferenceModeChange();
-loadUiSettings();
+loadLocalSettings();
 renderDriveStatus({
   connected:false,
   connectedText:"대기",
