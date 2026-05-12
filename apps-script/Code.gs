@@ -3,9 +3,11 @@
  *
  * Security notes:
  * - Do not store API keys in frontend.
+ * - Store API keys only in Apps Script PropertiesService.
  * - Do not return API keys in responses.
  * - Do not store student personal information.
  * - Save outputs only to approved Drive folder.
+ * - For commercial hardening, move secrets to Secret Manager or server env vars.
  *
  * TODO (future):
  * - Gemini OCR via server-side key (PropertiesService)
@@ -31,15 +33,41 @@ function doPost(e) {
 
     if (action === "testConnection") {
       var writable = _checkWritePermission_();
+      var keyStatus = _getApiKeyStatus_();
       return _jsonResponse(true, {
         success: true,
         folderId: DRIVE_FOLDER_ID,
         folderName: _getTargetFolder_().getName(),
         serverTime: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
         driveWritePermission: writable,
+        geminiConfigured: keyStatus.geminiConfigured,
+        openaiConfigured: keyStatus.openaiConfigured,
         lastSavedFileName: _getLastSavedFileName_(),
         message: "connection ok"
       }, [], [], startedAt);
+    }
+    if (action === "saveApiKeys") {
+      var geminiApiKey = String(payload.geminiApiKey || "");
+      var openaiApiKey = String(payload.openaiApiKey || "");
+      var props = PropertiesService.getScriptProperties();
+      if (geminiApiKey) props.setProperty("GEMINI_API_KEY", geminiApiKey);
+      if (openaiApiKey) props.setProperty("OPENAI_API_KEY", openaiApiKey);
+      var savedStatus = _getApiKeyStatus_();
+      return _jsonResponse(true, {
+        geminiConfigured: savedStatus.geminiConfigured,
+        openaiConfigured: savedStatus.openaiConfigured
+      }, [], [], startedAt);
+    }
+    if (action === "getApiKeyStatus") {
+      var status = _getApiKeyStatus_();
+      return _jsonResponse(true, status, [], [], startedAt);
+    }
+    if (action === "clearApiKeys") {
+      var scriptProps = PropertiesService.getScriptProperties();
+      scriptProps.deleteProperty("GEMINI_API_KEY");
+      scriptProps.deleteProperty("OPENAI_API_KEY");
+      var cleared = _getApiKeyStatus_();
+      return _jsonResponse(true, cleared, [], [], startedAt);
     }
     if (action === "saveProjectJson") {
       var jsonText = String(payload.jsonText || "");
@@ -114,6 +142,15 @@ function _checkWritePermission_() {
   } catch (_e) {
     return false;
   }
+}
+function _getApiKeyStatus_() {
+  var props = PropertiesService.getScriptProperties();
+  var gem = props.getProperty("GEMINI_API_KEY");
+  var open = props.getProperty("OPENAI_API_KEY");
+  return {
+    geminiConfigured: !!(gem && String(gem).trim()),
+    openaiConfigured: !!(open && String(open).trim())
+  };
 }
 
 function _jsonResponse(ok, data, warnings, errors, startedAt) {

@@ -378,8 +378,16 @@ G-FIELD Smart Canvas</div>
           </div>
           <div class="field">
             <label>API Key 상태</label>
-            <div id="aiKeyAdminWrap" class="hidden"><input id="aiApiKey" type="password" placeholder="관리자만 입력 가능"></div>
-            <div id="aiKeyMaskedWrap"><input type="text" id="aiApiKeyMasked" value="********" readonly></div>
+            <div id="apiKeyAdminPanel" class="hidden">
+              <div class="field" style="margin-bottom:6px"><label>Gemini API Key</label><input id="geminiApiKeyInput" type="password" placeholder="관리자만 입력 가능"></div>
+              <div class="field" style="margin-bottom:6px"><label>OpenAI API Key</label><input id="openaiApiKeyInput" type="password" placeholder="관리자만 입력 가능"></div>
+              <div class="row">
+                <button class="secondary small" onclick="saveApiKeysToServer()">API Key 서버 저장</button>
+                <button class="secondary small" onclick="refreshApiKeyStatus()">API Key 설정 상태 확인</button>
+                <button class="red small" onclick="clearApiKeysOnServer()">API Key 삭제</button>
+              </div>
+            </div>
+            <div id="apiKeyMaskedPanel"><input type="text" value="********" readonly></div>
             <div id="aiKeyStatus" class="status-line" style="margin-top:6px">키 미입력</div>
           </div>
         </div>
@@ -426,6 +434,8 @@ const ACCESS_SESSION_KEY="gfieldAccessSession";
 const TRIAL_CODES_KEY="gfieldTrialCodes";
 const TRIAL_USAGE_PREFIX="gfieldTrialUsage_";
 const UI_SETTINGS_KEY="gfieldUiSettingsV1";
+const GEMINI_KEY_CONFIGURED_KEY="gfield_geminiKeyConfigured";
+const OPENAI_KEY_CONFIGURED_KEY="gfield_openaiKeyConfigured";
 const forbiddenSolutionTerms=["조합","순열","nCr","combination","binomial","\\binom","\\choose"];
 const solutionRuleLibrary={
   shortest_path_grade3:{
@@ -451,9 +461,13 @@ const opsRuntimeState={
   drivePermission:false,
   lastSavedFile:"",
   authMode:"",
-  authRemaining:null
+  authRemaining:null,
+  geminiKeyConfigured:false,
+  openaiKeyConfigured:false
 };
 let aiApiKeyConfigured=false;
+let geminiKeyConfigured=false;
+let openaiKeyConfigured=false;
 function loadLocalSettings(){
   try{
     const saved=JSON.parse(localStorage.getItem(UI_SETTINGS_KEY)||"{}");
@@ -464,42 +478,45 @@ function loadLocalSettings(){
         const p=String(saved.aiProvider)==="둘 다"?"Hybrid":String(saved.aiProvider);
         document.getElementById("aiProvider").value=p;
       }
-      aiApiKeyConfigured=!!saved.aiApiKeyConfigured;
     }
   }catch(_e){}
+  geminiKeyConfigured=localStorage.getItem(GEMINI_KEY_CONFIGURED_KEY)==="true";
+  openaiKeyConfigured=localStorage.getItem(OPENAI_KEY_CONFIGURED_KEY)==="true";
+  aiApiKeyConfigured=geminiKeyConfigured||openaiKeyConfigured;
+  opsRuntimeState.geminiKeyConfigured=geminiKeyConfigured;
+  opsRuntimeState.openaiKeyConfigured=openaiKeyConfigured;
   updateAiStatus();
 }
 function saveLocalSettings(){
   const payload={
     appsScriptUrl:getVal("appsScriptUrl").trim(),
     driveFolderId:getVal("driveFolderId").trim(),
-    aiProvider:getVal("aiProvider"),
-    aiApiKeyConfigured:!!aiApiKeyConfigured
+    aiProvider:getVal("aiProvider")
   };
   localStorage.setItem(UI_SETTINGS_KEY,JSON.stringify(payload));
+  localStorage.setItem(GEMINI_KEY_CONFIGURED_KEY,geminiKeyConfigured?"true":"false");
+  localStorage.setItem(OPENAI_KEY_CONFIGURED_KEY,openaiKeyConfigured?"true":"false");
 }
 function loadUiSettings(){loadLocalSettings();}
 function saveUiSettings(){saveLocalSettings();}
 function updateApiKeyAccessUI(){
   const s=loadAccessSession();
   const isAdmin=!!(s&&s.mode==="admin");
-  const adminWrap=document.getElementById("aiKeyAdminWrap");
-  const maskedWrap=document.getElementById("aiKeyMaskedWrap");
-  const input=document.getElementById("aiApiKey");
-  const masked=document.getElementById("aiApiKeyMasked");
+  const adminWrap=document.getElementById("apiKeyAdminPanel");
+  const maskedWrap=document.getElementById("apiKeyMaskedPanel");
+  const gemInput=document.getElementById("geminiApiKeyInput");
+  const openInput=document.getElementById("openaiApiKeyInput");
   if(adminWrap) adminWrap.classList.toggle("hidden",!isAdmin);
   if(maskedWrap) maskedWrap.classList.toggle("hidden",isAdmin);
-  if(masked) masked.value=aiApiKeyConfigured?"********":"(미입력)";
-  if(input){
-    input.disabled=!isAdmin;
-    if(!isAdmin) input.value="";
-  }
+  if(gemInput){gemInput.disabled=!isAdmin;if(!isAdmin)gemInput.value="";}
+  if(openInput){openInput.disabled=!isAdmin;if(!isAdmin)openInput.value="";}
   updateAiStatus();
 }
 function updateAiStatus(extra){
   const status=document.getElementById("aiKeyStatus");
-  if(status) status.textContent=aiApiKeyConfigured?"키 입력됨 / 서버 저장 필요":"키 미입력";
-  const base=`현재 AI 엔진: ${currentAiEngineLabel()}\n${aiApiKeyConfigured?"키 입력됨 / 서버 저장 필요":"키 미입력"}`;
+  aiApiKeyConfigured=geminiKeyConfigured||openaiKeyConfigured;
+  if(status) status.textContent=`Gemini Key: ${geminiKeyConfigured?"설정됨":"미설정"} / OpenAI Key: ${openaiKeyConfigured?"설정됨":"미설정"}`;
+  const base=`현재 AI 엔진: ${currentAiEngineLabel()}\nGemini Key: ${geminiKeyConfigured?"설정됨":"미설정"} / OpenAI Key: ${openaiKeyConfigured?"설정됨":"미설정"}`;
   const msg=extra?`${base}\n${extra}`:base;
   setStatus("aiStatus",msg);
 }
@@ -710,12 +727,18 @@ function renderOpsPanel(){
   const pdfCls=pdfReady?"ops-ok":"ops-bad";
   const authText=opsRuntimeState.authMode==="admin"?"✅ 관리자 모드":opsRuntimeState.authMode==="trial"?`✅ 체험 모드 · 남은 ${Number(opsRuntimeState.authRemaining||0)}회`:"⛔ 미승인";
   const authCls=opsRuntimeState.authMode?"ops-ok":"ops-bad";
+  const gemKeyText=opsRuntimeState.geminiKeyConfigured?"✅ 설정됨":"⛔ 미설정";
+  const openKeyText=opsRuntimeState.openaiKeyConfigured?"✅ 설정됨":"⛔ 미설정";
+  const gemKeyCls=opsRuntimeState.geminiKeyConfigured?"ops-ok":"ops-bad";
+  const openKeyCls=opsRuntimeState.openaiKeyConfigured?"ops-ok":"ops-bad";
   body.innerHTML=
     `<div class="k">접속 모드</div><div class="v ${authCls}">${esc(authText)}</div>`+
     `<div class="k">Pages</div><div class="v ${githubCls}">${esc(githubText)}</div>`+
     `<div class="k">Apps URL</div><div class="v ${urlCls}">${esc(urlText)}</div>`+
     `<div class="k">Drive 연결</div><div class="v ${driveCls}">${esc(driveText)}</div>`+
     `<div class="k">저장 권한</div><div class="v ${permCls}">${esc(permText)}</div>`+
+    `<div class="k">Gemini Key</div><div class="v ${gemKeyCls}">${esc(gemKeyText)}</div>`+
+    `<div class="k">OpenAI Key</div><div class="v ${openKeyCls}">${esc(openKeyText)}</div>`+
     `<div class="k">검증 3종</div><div class="v ${verifyCls}">${esc(verifyText)}</div>`+
     `<div class="k">전체 점검</div><div class="v ${fullCls}">${esc(fullText)}</div>`+
     `<div class="k">PDF 출력</div><div class="v ${pdfCls}">${esc(pdfText)}</div>`;
@@ -1400,9 +1423,9 @@ document.getElementById("jsonFile").addEventListener("change",e=>{
     ["title","time","level","examLayout","printOption","bookTitle","bookScope","bookUnit","coverTemplate","noteLines","contents","driveFolderId","appsScriptUrl","aiProvider"].forEach(id=>{
       if(d[id]&&document.getElementById(id))document.getElementById(id).value=sanitizeMathText(d[id]);
     });
-    const keyInput=document.getElementById("aiApiKey");
-    if(keyInput)keyInput.value="";
     aiApiKeyConfigured=!!d.aiApiKeyConfigured;
+    geminiKeyConfigured=localStorage.getItem(GEMINI_KEY_CONFIGURED_KEY)==="true";
+    openaiKeyConfigured=localStorage.getItem(OPENAI_KEY_CONFIGURED_KEY)==="true";
     if(d.solutionReference){
       const sr=d.solutionReference;
       const modeEl=document.getElementById("solutionRefMode");
@@ -2045,6 +2068,91 @@ async function postAppsScript(action,payload){
   if(!res.ok) throw new Error(`HTTP_${res.status}`);
   return res.json();
 }
+async function refreshApiKeyStatus(){
+  const url=getVal("appsScriptUrl").trim();
+  if(!url){
+    updateAiStatus("Apps Script Web App URL이 필요합니다.");
+    return {ok:false};
+  }
+  try{
+    const result=await postAppsScript("getApiKeyStatus",{});
+    if(result&&result.ok&&result.data){
+      geminiKeyConfigured=!!result.data.geminiConfigured;
+      openaiKeyConfigured=!!result.data.openaiConfigured;
+      opsRuntimeState.geminiKeyConfigured=geminiKeyConfigured;
+      opsRuntimeState.openaiKeyConfigured=openaiKeyConfigured;
+      saveLocalSettings();
+      updateAiStatus("서버 키 상태를 확인했습니다.");
+      renderOpsPanel();
+      return result;
+    }
+    updateAiStatus(`[getApiKeyStatus] 실패: ${(result&&result.errors||[]).join(", ")||"UNKNOWN_ERROR"}`);
+    return result||{ok:false};
+  }catch(e){
+    updateAiStatus(`[getApiKeyStatus] 오류: ${String(e&&e.message?e.message:e)}`);
+    return {ok:false};
+  }
+}
+async function saveApiKeysToServer(){
+  const s=loadAccessSession();
+  if(!s||s.mode!=="admin"){
+    updateAiStatus("관리자 모드에서만 API Key를 저장할 수 있습니다.");
+    return {ok:false};
+  }
+  const geminiApiKey=getVal("geminiApiKeyInput").trim();
+  const openaiApiKey=getVal("openaiApiKeyInput").trim();
+  if(!geminiApiKey&&!openaiApiKey){
+    updateAiStatus("저장할 API Key를 입력해 주세요.");
+    return {ok:false};
+  }
+  try{
+    const result=await postAppsScript("saveApiKeys",{geminiApiKey,openaiApiKey});
+    if(result&&result.ok&&result.data){
+      geminiKeyConfigured=!!result.data.geminiConfigured;
+      openaiKeyConfigured=!!result.data.openaiConfigured;
+      opsRuntimeState.geminiKeyConfigured=geminiKeyConfigured;
+      opsRuntimeState.openaiKeyConfigured=openaiKeyConfigured;
+      const g=document.getElementById("geminiApiKeyInput"); if(g) g.value="";
+      const o=document.getElementById("openaiApiKeyInput"); if(o) o.value="";
+      saveLocalSettings();
+      updateAiStatus("API Key를 서버에 저장했습니다. (입력칸은 보안을 위해 비웠습니다.)");
+      renderOpsPanel();
+      return result;
+    }
+    updateAiStatus(`[saveApiKeys] 실패: ${(result&&result.errors||[]).join(", ")||"UNKNOWN_ERROR"}`);
+    return result||{ok:false};
+  }catch(e){
+    updateAiStatus(`[saveApiKeys] 오류: ${String(e&&e.message?e.message:e)}`);
+    return {ok:false};
+  }
+}
+async function clearApiKeysOnServer(){
+  const s=loadAccessSession();
+  if(!s||s.mode!=="admin"){
+    updateAiStatus("관리자 모드에서만 API Key를 삭제할 수 있습니다.");
+    return {ok:false};
+  }
+  try{
+    const result=await postAppsScript("clearApiKeys",{});
+    if(result&&result.ok&&result.data){
+      geminiKeyConfigured=!!result.data.geminiConfigured;
+      openaiKeyConfigured=!!result.data.openaiConfigured;
+      opsRuntimeState.geminiKeyConfigured=geminiKeyConfigured;
+      opsRuntimeState.openaiKeyConfigured=openaiKeyConfigured;
+      const g=document.getElementById("geminiApiKeyInput"); if(g) g.value="";
+      const o=document.getElementById("openaiApiKeyInput"); if(o) o.value="";
+      saveLocalSettings();
+      updateAiStatus("서버에 저장된 API Key를 삭제했습니다.");
+      renderOpsPanel();
+      return result;
+    }
+    updateAiStatus(`[clearApiKeys] 실패: ${(result&&result.errors||[]).join(", ")||"UNKNOWN_ERROR"}`);
+    return result||{ok:false};
+  }catch(e){
+    updateAiStatus(`[clearApiKeys] 오류: ${String(e&&e.message?e.message:e)}`);
+    return {ok:false};
+  }
+}
 async function testDriveConnection(){
   const url=getVal("appsScriptUrl").trim();
   if(!url){
@@ -2061,6 +2169,14 @@ async function testDriveConnection(){
   }
   try{
     const result=await postAppsScript("testConnection",{});
+    if(result&&result.ok&&result.data){
+      geminiKeyConfigured=!!result.data.geminiConfigured;
+      openaiKeyConfigured=!!result.data.openaiConfigured;
+      opsRuntimeState.geminiKeyConfigured=geminiKeyConfigured;
+      opsRuntimeState.openaiKeyConfigured=openaiKeyConfigured;
+      saveLocalSettings();
+      updateAiStatus("Drive 연결 및 서버 키 상태를 확인했습니다.");
+    }
     if(result&&result.ok){
       const d=result.data||{};
       renderDriveStatus({
@@ -2164,7 +2280,7 @@ if(fullCheckStatusEl){
   });
 }
 document.addEventListener("paste",e=>{const introEl=document.getElementById("intro");if(introEl&&!introEl.classList.contains("hidden"))return;const active=document.activeElement;if(active&&["INPUT","TEXTAREA"].includes(active.tagName))return;handleProblemImagePaste(e);});
-["title","time","level","examLayout","printOption","bookTitle","bookScope","bookUnit","coverTemplate","noteLines","contents","targetPart","appsScriptUrl","driveFolderId","aiProvider","aiApiKey","solutionRefMode","solutionRefText","solutionRefYoutubeUrl","solutionRefStartMin","solutionRefStartSec","solutionRefEndMin","solutionRefEndSec"].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener("input",render);});
+["title","time","level","examLayout","printOption","bookTitle","bookScope","bookUnit","coverTemplate","noteLines","contents","targetPart","appsScriptUrl","driveFolderId","aiProvider","solutionRefMode","solutionRefText","solutionRefYoutubeUrl","solutionRefStartMin","solutionRefStartSec","solutionRefEndMin","solutionRefEndSec"].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener("input",render);});
 ["appsScriptUrl","driveFolderId","aiProvider"].forEach(id=>{
   const el=document.getElementById(id);
   if(!el) return;
@@ -2172,16 +2288,6 @@ document.addEventListener("paste",e=>{const introEl=document.getElementById("int
   el.addEventListener("input",handler);
   el.addEventListener("change",handler);
 });
-const aiApiKeyEl=document.getElementById("aiApiKey");
-if(aiApiKeyEl){
-  const keyHandler=()=>{
-    aiApiKeyConfigured=!!getVal("aiApiKey").trim();
-    saveLocalSettings();
-    updateApiKeyAccessUI();
-  };
-  aiApiKeyEl.addEventListener("input",keyHandler);
-  aiApiKeyEl.addEventListener("change",keyHandler);
-}
 onSolutionReferenceModeChange();
 loadLocalSettings();
 renderDriveStatus({
@@ -2195,6 +2301,7 @@ renderDriveStatus({
 });
 applyAccessGateVisibility();
 applyUrlPreset();
+if(getVal("appsScriptUrl").trim()) refreshApiKeyStatus();
 </script>
 </body>
 </html>
